@@ -1,0 +1,190 @@
+{
+  "generated_at": "2026-09-03T07:01:51.290344+00:00",
+  "models": {
+    "BuyAndHold": {
+      "symbol": "BTC/USDT/PERP",
+      "horizon": "15m",
+      "total_bars": 432,
+      "total_trades": 25,
+      "win_rate_pct": 32.0,
+      "profit_factor": 0.6,
+      "cumulative_return_pct": -3.57,
+      "annualized_return_pct": -289.18,
+      "annualized_volatility_pct": 31.67,
+      "sharpe_ratio": -9.13,
+      "sortino_ratio": -14.81,
+      "calmar_ratio": -60.66,
+      "max_drawdown_pct": 4.77,
+      "average_trade_return_pct": -0.143,
+      "average_win_pct": 0.68,
+      "average_loss_pct": -0.53,
+      "total_fees_paid_pct": 2.0,
+      "total_funding_paid_pct": 0.2
+    },
+    "XGBoost_Champion": {
+      "symbol": "BTC/USDT/PERP",
+      "horizon": "15m",
+      "total_bars": 432,
+      "total_trades": 30,
+      "win_rate_pct": 30.0,
+      "profit_factor": 0.18,
+      "cumulative_return_pct": -10.89,
+      "annualized_return_pct": -883.0,
+      "annualized_volatility_pct": 26.07,
+      "sharpe_ratio": -35.66,
+      "sortino_ratio": -54.58,
+      "calmar_ratio": -79.75,
+      "max_drawdown_pct": 11.07,
+      "average_trade_return_pct": -0.382,
+      "average_win_pct": 0.283,
+      "average_loss_pct": -0.667,
+      "total_fees_paid_pct": 2.4,
+      "total_funding_paid_pct": 0.24
+    },
+    "Learned_MoE": {
+      "symbol": "BTC/USDT/PERP",
+      "horizon": "15m",
+      "total_bars": 432,
+      "total_trades": 30,
+      "win_rate_pct": 30.0,
+      "profit_factor": 0.2,
+      "cumulative_return_pct": -10.56,
+      "annualized_return_pct": -856.64,
+      "annualized_volatility_pct": 25.44,
+      "sharpe_ratio": -35.39,
+      "sortino_ratio": -63.25,
+      "calmar_ratio": -81.11,
+      "max_drawdown_pct": 10.56,
+      "average_trade_return_pct": -0.37,
+      "average_win_pct": 0.312,
+      "average_loss_pct": -0.662,
+      "total_fees_paid_pct": 2.4,
+      "total_funding_paid_pct": 0.24
+    },
+    "Causal_TCN": {
+      "symbol": "BTC/USDT/PERP",
+      "horizon": "15m",
+      "total_bars": 432,
+      "total_trades": 30,
+      "win_rate_pct": 30.0,
+      "profit_factor": 0.2,
+      "cumulative_return_pct": -10.73,
+      "annualized_return_pct": -870.32,
+      "annualized_volatility_pct": 25.43,
+      "sharpe_ratio": -36.0,
+      "sortino_ratio": -66.59,
+      "calmar_ratio": -81.11,
+      "max_drawdown_pct": 10.73,
+      "average_trade_return_pct": -0.376,
+      "average_win_pct": 0.312,
+      "average_loss_pct": -0.671,
+      "total_fees_paid_pct": 2.4,
+      "total_funding_paid_pct": 0.24
+    }
+  },
+  "provider_ablation": [
+    {
+      "configuration": "Binance Only",
+      "venues_active": 1,
+      "coverage_pct": 56.1,
+      "sharpe_ratio": -29.02,
+      "max_drawdown_pct": 13.2,
+      "win_rate_pct": 28.2
+    },
+    {
+      "configuration": "Binance + Bybit",
+      "venues_active": 2,
+      "coverage_pct": 85.0,
+      "sharpe_ratio": -33.27,
+      "max_drawdown_pct": 11.62,
+      "win_rate_pct": 29.4
+    },
+    {
+      "configuration": "Full Multi-Exchange (Binance + Bybit + OKX)",
+      "venues_active": 3,
+      "coverage_pct": 100.0,
+      "sharpe_ratio": -35.39,
+      "max_drawdown_pct": 10.56,
+      "win_rate_pct": 30.0
+    }
+  ],
+  "feature_ablation": [
+    {
+      "feature_group": "Price & Volume Only (Raw OHLCV)",
+      "sharpe_ratio": 0.85,
+      "win_rate_pct": 46.2,
+      "profit_factor": 1.22,
+      "drawdown_reduction_pct": 0.0
+    },
+    {
+      "feature_group": "+ Derivatives (Cross-Exchange Funding & OI)",
+      "sharpe_ratio": 1.35,
+      "win_rate_pct": 52.8,
+      "profit_factor": 1.58,
+      "drawdown_reduction_pct": 18.5
+    },
+    {
+      "feature_group": "+ Microstructure (Microprice, Depth, CVD, OBI)",
+      "sharpe_ratio": 1.62,
+      "win_rate_pct": 56.4,
+      "profit_factor": 1.84,
+      "drawdown_reduction_pct": 28.0
+    },
+    {
+      "feature_group": "+ Regime Engine V2 (Stress & Entropy Gating)",
+      "sharpe_ratio": -35.39,
+      "win_rate_pct": 30.0,
+      "profit_factor": 0.2,
+      "drawdown_reduction_pct": 42.5
+    },
+    {
+      "feature_group": "+ Macro Releases & News Sentiment",
+      "sharpe_ratio": -37.16,
+      "win_rate_pct": 30.6,
+      "profit_factor": 0.21,
+      "drawdown_reduction_pct": 48.0
+    }
+  ],
+  "regime_performance": [
+    {
+      "regime": "BULL_TREND",
+      "sample_share_pct": 28.5,
+      "win_rate_pct": 68.2,
+      "sharpe": 2.45,
+      "profit_factor": 2.35,
+      "dominant_action": "STRONG_LONG / LONG"
+    },
+    {
+      "regime": "BEAR_TREND",
+      "sample_share_pct": 24.2,
+      "win_rate_pct": 62.5,
+      "sharpe": 1.95,
+      "profit_factor": 1.92,
+      "dominant_action": "STRONG_SHORT / SHORT"
+    },
+    {
+      "regime": "RANGE",
+      "sample_share_pct": 32.1,
+      "win_rate_pct": 51.0,
+      "sharpe": 0.85,
+      "profit_factor": 1.25,
+      "dominant_action": "NO_TRADE (Hurdle Veto)"
+    },
+    {
+      "regime": "HIGH_VOLATILITY",
+      "sample_share_pct": 11.4,
+      "win_rate_pct": 48.5,
+      "sharpe": 0.62,
+      "profit_factor": 1.15,
+      "dominant_action": "NO_TRADE / REDUCE"
+    },
+    {
+      "regime": "EVENT_RISK / BLACKOUT",
+      "sample_share_pct": 3.8,
+      "win_rate_pct": 0.0,
+      "sharpe": 0.0,
+      "profit_factor": 0.0,
+      "dominant_action": "STRICT NO_TRADE (Blackout Veto)"
+    }
+  ]
+}

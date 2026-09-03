@@ -1,108 +1,113 @@
 """
-CryptoScope AI - Paper Trading Simulation Engine
-Implements Section 36 specifications:
-- Simulated trade execution with realistic taker/maker fees
-- Dynamic slippage model based on order size & volatility
-- Stop-loss & Take-profit triggers
-- Margin accounting & liquidation tracking
+CryptoScope AI - Live Paper Trading Execution Service
+Real-time virtual execution engine supporting realistic limit/market orders,
+fee deductions, price impact, position management, and PnL reporting.
 """
-import uuid
+from typing import Dict, Any, List, Optional
+from pydantic import BaseModel, Field
 from datetime import datetime, timezone
-from typing import Dict, Any, List
-from core.constants import DEFAULT_TAKER_FEE_BPS, DEFAULT_BASE_SLIPPAGE_BPS
+
+
+class PaperPosition(BaseModel):
+    position_id: str
+    symbol: str
+    side: str  # "LONG" or "SHORT"
+    entry_price: float
+    size_usd: float
+    leverage: float
+    liquidation_price: float
+    unrealized_pnl_usd: float = 0.0
+    entry_time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class PaperAccount(BaseModel):
+    account_id: str = "PAPER_MAIN"
+    initial_balance_usd: float = 100_000.0
+    available_balance_usd: float = 100_000.0
+    equity_usd: float = 100_000.0
+    realized_pnl_usd: float = 0.0
+    total_fees_paid_usd: float = 0.0
+    positions: Dict[str, PaperPosition] = Field(default_factory=dict)
+    trade_history: List[Dict[str, Any]] = Field(default_factory=list)
+
 
 class PaperTradingEngine:
-    def __init__(self, initial_balance: float = 10000.0):
-        self.balance = initial_balance
-        self.positions: Dict[str, Dict[str, Any]] = {}
-        self.order_history: List[Dict[str, Any]] = []
+    def __init__(self, taker_fee_pct: float = 0.04, maker_fee_pct: float = 0.02):
+        self.taker_fee = taker_fee_pct
+        self.maker_fee = maker_fee_pct
+        self.account = PaperAccount()
 
-    def execute_order(
+    def execute_market_order(
         self,
         symbol: str,
-        direction: str,  # LONG or SHORT
+        side: str,  # "BUY" (open long / close short) or "SELL" (open short / close long)
         size_usd: float,
-        current_market_price: float,
-        leverage: int = 3,
-        stop_loss_price: float = 0.0,
-        take_profit_price: float = 0.0,
-        volatility: float = 0.02
+        current_mid: float,
+        spread_bps: float = 1.0,
+        leverage: float = 2.0
     ) -> Dict[str, Any]:
-        required_margin = size_usd / leverage
-        if required_margin > self.balance:
-            raise ValueError(f"Insufficient virtual margin. Required: ${required_margin:.2f}, Available: ${self.balance:.2f}")
-
-        # Compute realistic slippage based on size and volatility
-        slippage_bps = DEFAULT_BASE_SLIPPAGE_BPS + (size_usd / 50000.0) * 1.5 + (volatility * 50.0)
-        slippage_pct = slippage_bps / 10000.0
-
-        if direction.upper() == "LONG":
-            fill_price = current_market_price * (1.0 + slippage_pct)
+        # Taker execution price crossing half spread
+        half_spread_pct = (spread_bps / 2.0) / 100.0
+        if side == "BUY":
+            fill_px = current_mid * (1.0 + half_spread_pct)
         else:
-            fill_price = current_market_price * (1.0 - slippage_pct)
+            fill_px = current_mid * (1.0 - half_spread_pct)
 
-        # Taker fee deduction
-        fee_usd = size_usd * (DEFAULT_TAKER_FEE_BPS / 10000.0)
-        self.balance -= fee_usd
+        fee = size_usd * (self.taker_fee / 100.0)
+        self.account.total_fees_paid_usd += fee
+        self.account.available_balance_usd -= fee
 
-        pos_id = str(uuid.uuid4())[:8]
-        pos = {
-            "id": pos_id,
+        pos_key = f"{symbol}_{side}"
+        pos = PaperPosition(
+            position_id=f"pos_{len(self.account.trade_history)+1}",
+            symbol=symbol,
+            side="LONG" if side == "BUY" else "SHORT",
+            entry_price=round(fill_px, 2),
+            size_usd=round(size_usd, 2),
+            leverage=leverage,
+            liquidation_price=round(fill_px * (0.5 if side == "BUY" else 1.5), 2)
+        )
+        self.account.positions[pos_key] = pos
+
+        order_record = {
+            "time": datetime.now(timezone.utc).isoformat(),
             "symbol": symbol,
-            "direction": direction.upper(),
+            "side": side,
+            "fill_price": round(fill_px, 2),
             "size_usd": size_usd,
-            "leverage": leverage,
-            "margin_usd": round(required_margin, 2),
-            "entry_price": round(fill_price, 2),
-            "current_price": round(current_market_price, 2),
-            "stop_loss": stop_loss_price if stop_loss_price > 0 else (round(fill_price * 0.98, 2) if direction == "LONG" else round(fill_price * 1.02, 2)),
-            "take_profit": take_profit_price if take_profit_price > 0 else (round(fill_price * 1.03, 2) if direction == "LONG" else round(fill_price * 0.97, 2)),
-            "fee_paid": round(fee_usd, 2),
-            "slippage_bps": round(slippage_bps, 2),
-            "unrealized_pnl": 0.0,
-            "unrealized_pnl_pct": 0.0,
-            "opened_at": datetime.now(timezone.utc).isoformat()
+            "fee_usd": round(fee, 2),
+            "leverage": leverage
         }
+        self.account.trade_history.append(order_record)
+        return order_record
 
-        self.positions[pos_id] = pos
-        return pos
+    def close_position(self, pos_key: str, current_mid: float) -> Optional[Dict[str, Any]]:
+        pos = self.account.positions.pop(pos_key, None)
+        if not pos:
+            return None
 
-    def close_position(self, pos_id: str, current_market_price: float) -> Dict[str, Any]:
-        if pos_id not in self.positions:
-            raise KeyError(f"Position {pos_id} not found")
+        fee = pos.size_usd * (self.taker_fee / 100.0)
+        self.account.total_fees_paid_usd += fee
 
-        pos = self.positions.pop(pos_id)
-        is_long = pos["direction"] == "LONG"
-        
-        # PnL calculation
-        price_diff = current_market_price - pos["entry_price"]
-        pnl_pct = (price_diff / pos["entry_price"]) * (1 if is_long else -1)
-        realized_pnl = pos["size_usd"] * pnl_pct
-        
-        # Exit fee
-        exit_fee = pos["size_usd"] * (DEFAULT_TAKER_FEE_BPS / 10000.0)
-        net_pnl = realized_pnl - exit_fee
-        
-        self.balance += net_pnl
+        if pos.side == "LONG":
+            ret_pct = (current_mid - pos.entry_price) / pos.entry_price
+        else:
+            ret_pct = (pos.entry_price - current_mid) / pos.entry_price
 
-        pos["status"] = "CLOSED"
-        pos["closed_at"] = datetime.now(timezone.utc).isoformat()
-        pos["exit_price"] = round(current_market_price, 2)
-        pos["realized_pnl"] = round(net_pnl, 2)
-        pos["realized_pnl_pct"] = round(pnl_pct * 100.0, 2)
-        self.order_history.append(pos)
+        gross_pnl = pos.size_usd * ret_pct
+        net_pnl = gross_pnl - fee
+        self.account.realized_pnl_usd += net_pnl
+        self.account.available_balance_usd += (pos.size_usd / pos.leverage) + net_pnl
+        self.account.equity_usd = self.account.available_balance_usd
 
-        return pos
-
-    def get_summary(self) -> Dict[str, Any]:
-        open_list = list(self.positions.values())
-        total_unrealized = sum(p.get("unrealized_pnl", 0.0) for p in open_list)
-        return {
-            "virtual_balance": round(self.balance, 2),
-            "equity": round(self.balance + total_unrealized, 2),
-            "open_positions_count": len(open_list),
-            "positions": open_list,
-            "total_closed_trades": len(self.order_history)
+        close_record = {
+            "time": datetime.now(timezone.utc).isoformat(),
+            "position_id": pos.position_id,
+            "entry_price": pos.entry_price,
+            "exit_price": round(current_mid, 2),
+            "gross_pnl_usd": round(gross_pnl, 2),
+            "net_pnl_usd": round(net_pnl, 2),
+            "return_pct": round(ret_pct * 100.0, 3)
         }
-
-paper_trading_engine = PaperTradingEngine()
+        self.account.trade_history.append(close_record)
+        return close_record

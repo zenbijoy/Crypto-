@@ -1,6 +1,8 @@
 """
 CryptoScope AI - Exceptions & Domain Errors
 """
+from typing import Optional
+
 class CryptoScopeException(Exception):
     """Base exception for CryptoScope AI domain errors"""
     def __init__(self, message: str, code: str = "CRYPTOSCOPE_ERROR"):
@@ -20,8 +22,9 @@ class ProviderError(CryptoScopeException):
         super().__init__(message, code="PROVIDER_ERROR")
 
 class RateLimitError(CryptoScopeException):
-    def __init__(self, message: str = "Provider rate limit reached"):
+    def __init__(self, message: str = "Provider rate limit reached", retry_after_seconds: Optional[int] = None):
         super().__init__(message, code="RATE_LIMIT_EXCEEDED")
+        self.retry_after_seconds = retry_after_seconds
 
 class ProviderUnavailableError(CryptoScopeException):
     def __init__(self, message: str = "Provider is currently unavailable or unreachable"):

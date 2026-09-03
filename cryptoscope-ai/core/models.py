@@ -174,6 +174,37 @@ class IndexPrice(CanonicalBaseModel):
     index_price: float
 
 
+class BookTicker(CanonicalBaseModel):
+    best_bid_price: float
+    best_bid_qty: float
+    best_ask_price: float
+    best_ask_qty: float
+
+
+class PremiumIndex(CanonicalBaseModel):
+    mark_price: float
+    index_price: float
+    estimated_settle_price: Optional[float] = None
+    last_funding_rate: float
+    next_funding_time: datetime
+    interest_rate: float = 0.0001
+
+
+class FeatureValue(BaseModel):
+    feature_name: str
+    value: Any
+    event_time: datetime
+    available_time: datetime
+    source: str
+    version: str = "2.1.0"
+    quality: str = "REAL_EXCHANGE_DATA"
+    provenance: Optional[Dict[str, Any]] = None
+
+    model_config = {
+        "arbitrary_types_allowed": True
+    }
+
+
 class ProviderHealth(BaseModel):
     provider: Provider
     status: str  # HEALTHY, DEGRADED, DOWN

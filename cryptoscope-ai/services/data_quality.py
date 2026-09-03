@@ -195,6 +195,64 @@ class DataQualityService:
         avg_score = int(sum(scores) / len(scores)) if scores else 0
         return clean, avg_score
 
+    def calculate_quality_breakdown(
+        self,
+        candles: Optional[List[Candle]] = None,
+        orderbook: Optional[OrderBookSnapshot] = None,
+        provider_count: int = 1,
+        feed_freshness_seconds: float = 1.0
+    ) -> Dict[str, Any]:
+        """
+        Phase 16 Component breakdown:
+        freshness_score, completeness_score, sequence_score, validity_score, cross_provider_score, overall_score.
+        Derived purely from observable checks.
+        """
+        # 1. Freshness Score (100 if < 2s, decays after)
+        freshness_score = max(0, min(100, int(100 - max(0.0, (feed_freshness_seconds - 2.0) * 10))))
+
+        # 2. Validity Score (OHLC invariants & non-crossed orderbook)
+        validity_score = 100
+        if candles:
+            _, c_score = self.validate_series(candles)
+            validity_score = c_score
+        if orderbook:
+            ob_valid, ob_score, _ = self.validate_orderbook(orderbook)
+            validity_score = min(validity_score, ob_score)
+
+        # 3. Sequence Score (monotonicity, gaps, duplicates)
+        sequence_score = 100
+        if candles and len(candles) > 1:
+            gaps = 0
+            for i in range(1, len(candles)):
+                if candles[i].open_time <= candles[i - 1].open_time:
+                    gaps += 1
+            sequence_score = max(0, 100 - (gaps * 25))
+
+        # 4. Completeness Score
+        completeness_score = 100 if (candles and len(candles) >= 30) else (50 if candles else 0)
+
+        # 5. Cross-provider consensus score
+        cross_provider_score = min(100, provider_count * 50) if provider_count > 0 else 0
+
+        # Overall weighted score
+        overall_score = int(
+            0.30 * validity_score +
+            0.25 * freshness_score +
+            0.20 * sequence_score +
+            0.15 * completeness_score +
+            0.10 * cross_provider_score
+        )
+
+        return {
+            "overall_score": overall_score,
+            "freshness_score": freshness_score,
+            "validity_score": validity_score,
+            "sequence_score": sequence_score,
+            "completeness_score": completeness_score,
+            "cross_provider_score": cross_provider_score,
+            "quality_tier": "HIGH" if overall_score >= 80 else ("MEDIUM" if overall_score >= 50 else "LOW")
+        }
+
 
 # Global singleton
 data_quality_service = DataQualityService()

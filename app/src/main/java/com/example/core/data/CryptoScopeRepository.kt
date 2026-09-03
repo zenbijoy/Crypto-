@@ -68,6 +68,14 @@ class CryptoScopeRepository(
     )
     val liveOpenInterests: StateFlow<Map<String, Double>> = _liveOpenInterests.asStateFlow()
 
+    // Live L2 order books from remote exchange
+    private val _liveOrderBooks = MutableStateFlow<Map<String, OrderBookData>>(emptyMap())
+    val liveOrderBooks: StateFlow<Map<String, OrderBookData>> = _liveOrderBooks.asStateFlow()
+
+    // Live Candlestick histories from remote exchange
+    private val _liveKlines = MutableStateFlow<Map<String, List<CandleStick>>>(emptyMap())
+    val liveKlines: StateFlow<Map<String, List<CandleStick>>> = _liveKlines.asStateFlow()
+
     // WebSocket / Connection status
     private val _isLiveConnected = MutableStateFlow(true)
     val isLiveConnected: StateFlow<Boolean> = _isLiveConnected.asStateFlow()
@@ -99,7 +107,7 @@ class CryptoScopeRepository(
     }
 
     /**
-     * Fetches public futures market data (tickers, premium indices/funding) via Retrofit & Moshi
+     * Fetches public futures market data (tickers, premium indices/funding, depth, klines) via Retrofit & Moshi
      */
     suspend fun fetchRemoteFuturesData() {
         try {
@@ -132,13 +140,47 @@ class CryptoScopeRepository(
                 }
                 _liveFundingRates.value = fundingMap
             }
+
+            val curSymbol = _selectedAsset.value.code
+            val oiRes = remoteDataSource.fetchOpenInterest(curSymbol)
+            if (oiRes.isSuccess) {
+                val oiVal = oiRes.getOrNull() ?: 0.0
+                if (oiVal > 0) {
+                    val oiMap = _liveOpenInterests.value.toMutableMap()
+                    oiMap[curSymbol] = oiVal
+                    _liveOpenInterests.value = oiMap
+                }
+            }
+
+            val obRes = remoteDataSource.fetchOrderBook(curSymbol, 20)
+            if (obRes.isSuccess) {
+                val obData = obRes.getOrNull()
+                if (obData != null) {
+                    val obMap = _liveOrderBooks.value.toMutableMap()
+                    obMap[curSymbol] = obData
+                    _liveOrderBooks.value = obMap
+                }
+            }
+
+            val klineRes = remoteDataSource.fetchKlines(curSymbol, "1h", 30)
+            if (klineRes.isSuccess) {
+                val klines = klineRes.getOrNull()
+                if (!klines.isNullOrEmpty()) {
+                    val km = _liveKlines.value.toMutableMap()
+                    km[curSymbol] = klines
+                    _liveKlines.value = km
+                }
+            }
         } catch (_: Exception) {
-            // Graceful fallback to cached / internal simulated state
+            // Graceful fallback to cached state
         }
     }
 
     fun setSelectedAsset(asset: AssetSymbol) {
         _selectedAsset.value = asset
+        repositoryScope.launch {
+            fetchRemoteFuturesData()
+        }
     }
 
     fun setSelectedHorizon(horizon: Horizon) {
@@ -366,16 +408,20 @@ class CryptoScopeRepository(
 
     // Historical Candlesticks
     fun getCandles(asset: AssetSymbol, count: Int = 30): List<CandleStick> {
+        val cached = _liveKlines.value[asset.code]
+        if (!cached.isNullOrEmpty()) {
+            return if (cached.size > count) cached.takeLast(count) else cached
+        }
         val base = _livePrices.value[asset.code] ?: asset.basePrice
         val list = mutableListOf<CandleStick>()
-        var curr = base * 0.96
+        var curr = base * 0.98
         val now = System.currentTimeMillis()
         for (i in 0 until count) {
             val open = curr
-            val change = (if (i % 3 == 0) -0.008 else 0.011) * open
+            val change = (if (i % 3 == 0) -0.003 else 0.004) * open
             val close = open + change
-            val high = maxOf(open, close) + open * 0.005
-            val low = minOf(open, close) - open * 0.004
+            val high = maxOf(open, close) + open * 0.002
+            val low = minOf(open, close) - open * 0.002
             val vol = 800.0 + (i * 35.0)
             list.add(
                 CandleStick(
@@ -394,6 +440,10 @@ class CryptoScopeRepository(
 
     // Order Book Snapshot
     fun getOrderBook(asset: AssetSymbol): OrderBookData {
+        val cached = _liveOrderBooks.value[asset.code]
+        if (cached != null && cached.bids.isNotEmpty() && cached.asks.isNotEmpty()) {
+            return cached
+        }
         val base = _livePrices.value[asset.code] ?: asset.basePrice
         val bids = mutableListOf<OrderBookEntry>()
         val asks = mutableListOf<OrderBookEntry>()
@@ -597,18 +647,20 @@ class CryptoScopeRepository(
 
     // Provider Layer (Decoupled Adapters: Binance, Bybit, OKX, Hyperliquid, Coinbase, Kraken, CoinAnk, CoinMetrics, DefiLlama, FRED, GDELT)
     fun getProviderHealthList(): List<ProviderHealthStatus> {
+        val isConnected = _isLiveConnected.value
+        val binanceStatus = if (isConnected) "HEALTHY" else "DISCONNECTED"
         return listOf(
-            ProviderHealthStatus("Binance Futures L2/L3", "Exchange WS", "HEALTHY", 12, true, 28, "1s ago"),
-            ProviderHealthStatus("Bybit Linear Inverse", "Exchange WS", "HEALTHY", 18, true, 34, "2s ago"),
-            ProviderHealthStatus("OKX Perpetual Swaps", "Exchange WS", "HEALTHY", 22, true, 19, "2s ago"),
-            ProviderHealthStatus("Hyperliquid Perps", "Exchange WS", "HEALTHY", 15, true, 14, "1s ago"),
-            ProviderHealthStatus("Coinbase Advanced Trade", "Exchange REST/WS", "HEALTHY", 31, true, 42, "3s ago"),
-            ProviderHealthStatus("Kraken Futures", "Exchange WS", "HEALTHY", 38, true, 22, "4s ago"),
-            ProviderHealthStatus("CoinAnk Liquidation Engine", "Derivatives Aggregator", "HEALTHY", 85, true, 62, "6s ago"),
-            ProviderHealthStatus("CoinMetrics On-Chain", "On-Chain Pipeline", "HEALTHY", 110, true, 18, "12s ago"),
-            ProviderHealthStatus("DefiLlama Protocol Yields", "DeFi Analytics", "HEALTHY", 140, true, 12, "30s ago"),
-            ProviderHealthStatus("FRED Macro Economic Data", "Macro Feed", "HEALTHY", 95, true, 8, "2m ago"),
-            ProviderHealthStatus("GDELT News & Event Stream", "News / NLP", "HEALTHY", 125, true, 45, "15s ago")
+            ProviderHealthStatus("Binance Futures USD-M", "Exchange REST / WS", binanceStatus, 24, isConnected, 28, "1s ago"),
+            ProviderHealthStatus("Bybit Linear", "Exchange WS", "STANDBY", -1, false, 0, "Standby"),
+            ProviderHealthStatus("OKX Perpetual Swaps", "Exchange WS", "STANDBY", -1, false, 0, "Standby"),
+            ProviderHealthStatus("Hyperliquid Perps", "DEX WS", "STANDBY", -1, false, 0, "Standby"),
+            ProviderHealthStatus("Coinbase Advanced Trade", "Spot Benchmark", "STANDBY", -1, false, 0, "Standby"),
+            ProviderHealthStatus("Kraken Futures", "Exchange WS", "STANDBY", -1, false, 0, "Standby"),
+            ProviderHealthStatus("CoinAnk Liquidation Engine", "Derivatives Aggregator", "STANDBY", -1, false, 0, "Standby"),
+            ProviderHealthStatus("CoinGecko Discovery", "Metadata / Tickers", "CONNECTED", 52, true, 18, "15s ago"),
+            ProviderHealthStatus("DefiLlama Protocol Yields", "DeFi Analytics", "CONNECTED", 68, true, 12, "30s ago"),
+            ProviderHealthStatus("FRED Macro Economic Data", "Macro Feed", "NOT_CONFIGURED", -1, false, 0, "Requires API Key"),
+            ProviderHealthStatus("GDELT News & Event Stream", "News / NLP", "STANDBY", -1, false, 0, "Standby")
         )
     }
 

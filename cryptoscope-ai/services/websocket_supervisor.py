@@ -37,10 +37,14 @@ class FeedState:
 
 
 class OrderBookSyncState:
-    INITIALIZING = "INITIALIZING"
-    BUFFERING = "BUFFERING"
-    SYNCHRONIZED = "SYNCHRONIZED"
+    SYNCING = "SYNCING"
+    VALID = "VALID"
+    STALE = "STALE"
     INVALID = "INVALID"
+    # Legacy aliases
+    INITIALIZING = "SYNCING"
+    BUFFERING = "SYNCING"
+    SYNCHRONIZED = "VALID"
 
 
 class ManagedOrderBook:

@@ -1,0 +1,90 @@
+[
+  {
+    "Model": "Majority Baseline",
+    "Balanced_Accuracy": 0.3333333333333333,
+    "MCC": 0.0,
+    "Macro_F1": 0.28469433288710394,
+    "Brier": 0.5093457943925234,
+    "ECE": 0.2546728971962616,
+    "Prec_10": 0.0,
+    "Net_Expectancy": 0.0,
+    "Train_Time_s": 0.009
+  },
+  {
+    "Model": "Logistic Regression",
+    "Balanced_Accuracy": 0.3333333333333333,
+    "MCC": 0.0,
+    "Macro_F1": 0.28469433288710394,
+    "Brier": 0.4004745576279339,
+    "ECE": 0.06985765458462082,
+    "Prec_10": 97.62,
+    "Net_Expectancy": 0.0004,
+    "Train_Time_s": 0.082
+  },
+  {
+    "Model": "LightGBM",
+    "Balanced_Accuracy": 0.3557807135393342,
+    "MCC": 0.09554469248285888,
+    "Macro_F1": 0.3327849557285397,
+    "Brier": 0.39700913659603854,
+    "ECE": 0.06916187007083298,
+    "Prec_10": 95.24,
+    "Net_Expectancy": 0.0012,
+    "Train_Time_s": 0.762
+  },
+  {
+    "Model": "XGBoost",
+    "Balanced_Accuracy": 0.36802240266781583,
+    "MCC": 0.13333921631461115,
+    "Macro_F1": 0.3532254308475704,
+    "Brier": 0.3960907282811244,
+    "ECE": 0.05428500487425618,
+    "Prec_10": 95.24,
+    "Net_Expectancy": 0.0015,
+    "Train_Time_s": 0.82
+  },
+  {
+    "Model": "PyTorch GRU",
+    "Balanced_Accuracy": 0.34471706454465073,
+    "MCC": 0.08606906347086651,
+    "Macro_F1": 0.2982637765555915,
+    "Brier": 0.47339950679582665,
+    "ECE": 0.10860596655367372,
+    "Prec_10": 66.67,
+    "Net_Expectancy": 0.0011,
+    "Train_Time_s": 53.855
+  },
+  {
+    "Model": "PyTorch Causal TCN",
+    "Balanced_Accuracy": 0.35179045092838196,
+    "MCC": 0.0800717432437632,
+    "Macro_F1": 0.3156834253608447,
+    "Brier": 0.47543172262991346,
+    "ECE": 0.09546866305955536,
+    "Prec_10": 75.76,
+    "Net_Expectancy": 0.0016,
+    "Train_Time_s": 21.956
+  },
+  {
+    "Model": "PyTorch PatchTST",
+    "Balanced_Accuracy": 0.3333333333333333,
+    "MCC": 0.0,
+    "Macro_F1": 0.2737463126843658,
+    "Brier": 0.502765158507099,
+    "ECE": 0.11796976317156542,
+    "Prec_10": 75.76,
+    "Net_Expectancy": 0.0013,
+    "Train_Time_s": 8.664
+  },
+  {
+    "Model": "Stacked Ensemble (XGB+LGB+TCN+GRU)",
+    "Balanced_Accuracy": 0.36251105216622465,
+    "MCC": 0.14838006510317117,
+    "Macro_F1": 0.3308398164771594,
+    "Brier": 0.46048231070747947,
+    "ECE": 0.05108071443683775,
+    "Prec_10": 72.73,
+    "Net_Expectancy": 0.0022,
+    "Train_Time_s": 0.008
+  }
+]

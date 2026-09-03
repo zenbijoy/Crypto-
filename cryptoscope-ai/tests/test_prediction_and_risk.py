@@ -8,8 +8,16 @@ from core.constants import DISCLAIMER_TEXT
 
 class TestPredictionAndRisk(unittest.TestCase):
     def test_prediction_output_structure_and_quantiles(self):
+        sample_candles = [
+            {"close": 67000.0 + i * 5.0, "high": 67050.0 + i * 5.0, "low": 66950.0 + i * 5.0, "volume_base": 100.0}
+            for i in range(30)
+        ]
         for asset in ["BTC", "ETH", "SOL", "DOGE"]:
-            forecast = prediction_engine.generate_forecast(symbol=f"{asset}USDT")
+            forecast = prediction_engine.generate_forecast(
+                symbol=f"{asset}USDT",
+                current_price=67000.0,
+                candles_1h=sample_candles
+            )
             
             # Verify mandatory regulatory disclaimer
             self.assertEqual(forecast["disclaimer"], DISCLAIMER_TEXT)
@@ -30,10 +38,24 @@ class TestPredictionAndRisk(unittest.TestCase):
             self.assertIn(forecast["signal"], ["STRONG LONG", "LONG", "NEUTRAL / NO-TRADE", "SHORT", "STRONG SHORT"])
 
     def test_risk_engine_veto_low_quality_data(self):
-        forecast = prediction_engine.generate_forecast(symbol="BTCUSDT", data_quality_score=70)
+        sample_candles = [
+            {"close": 67000.0 + i * 5.0, "high": 67050.0 + i * 5.0, "low": 66950.0 + i * 5.0, "volume_base": 100.0}
+            for i in range(30)
+        ]
+        forecast = prediction_engine.generate_forecast(
+            symbol="BTCUSDT",
+            current_price=67000.0,
+            candles_1h=sample_candles,
+            data_quality_score=70
+        )
         # Should trigger risk veto due to sub-90 quality score
         self.assertEqual(forecast["risk_decision"], "REJECT")
         self.assertEqual(forecast["signal"], "NEUTRAL / NO-TRADE")
+
+    def test_prediction_engine_refuses_empty_data(self):
+        from core.exceptions import DataUnavailableException
+        with self.assertRaises(DataUnavailableException):
+            prediction_engine.generate_forecast(symbol="BTCUSDT", current_price=None, candles_1h=None)
 
 if __name__ == "__main__":
     unittest.main()

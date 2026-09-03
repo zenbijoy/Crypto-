@@ -7,6 +7,7 @@ import statistics
 import math
 from typing import Dict, Any, List
 
+from core.exceptions import DataUnavailableException
 from ml.models.tabular_expert import tabular_expert
 from ml.models.orderflow_tcn import orderflow_tcn_expert
 from ml.models.temporal_tft import temporal_transformer_expert
@@ -71,7 +72,9 @@ class MetaEnsembleEngine:
 
         # 4. Expected return & Quantiles
         expected_log_return = sum(s.get("expected_log_return", 0.0) * w for s, w in zip(specialist_outputs, weights))
-        close = price_feats.get("close", 67500.0)
+        close = price_feats.get("close")
+        if close is None or close <= 0:
+            raise DataUnavailableException("Real close price missing from feature vector; cannot compute price quantiles")
         expected_price = close * math.exp(expected_log_return)
 
         # Quantile head from temporal specialist

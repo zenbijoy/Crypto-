@@ -43,7 +43,7 @@ class ProbabilityCalibrator:
         Brier Score = 1/N * sum((f_i - o_i)^2). Lower is better (0.0 is perfect).
         """
         if not predicted_probs or len(predicted_probs) != len(true_outcomes):
-            return 0.15
+            return float("nan")
         n = len(predicted_probs)
         squared_errors = sum((p - y) ** 2 for p, y in zip(predicted_probs, true_outcomes))
         return float(squared_errors / n)
@@ -53,7 +53,7 @@ class ProbabilityCalibrator:
         Expected Calibration Error (ECE) across n_bins. Lower is better.
         """
         if not predicted_probs or len(predicted_probs) != len(true_outcomes):
-            return 0.045
+            return float("nan")
         
         n = len(predicted_probs)
         bin_boundaries = [i / n_bins for i in range(n_bins + 1)]

@@ -54,19 +54,10 @@ class PredictionEngine:
             if candles_1h and len(candles_1h) > 0:
                 current_price = float(candles_1h[-1]["close"])
             else:
-                defaults = {"BTC": 67500.0, "ETH": 3500.0, "SOL": 150.0, "DOGE": 0.12}
-                current_price = defaults.get(asset, 100.0)
+                raise DataUnavailableException(f"Market price unavailable for {symbol}; cannot generate prediction")
 
-        if not candles_1h:
-            candles_1h = [
-                {
-                    "close": current_price * (1.0 + 0.0001 * (i - 25)),
-                    "high": current_price * 1.002,
-                    "low": current_price * 0.998,
-                    "volume_base": 100.0
-                }
-                for i in range(50)
-            ]
+        if not candles_1h or len(candles_1h) < 2:
+            raise DataUnavailableException(f"Insufficient historical candles for {symbol}; cannot generate prediction")
 
         # 1. Compute leak-free quantitative feature vector from real data
         raw_feature_vector = feature_engine.compute_all_features(

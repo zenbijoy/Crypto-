@@ -41,63 +41,44 @@ class FeatureEngineeringEngine:
         now_iso = utcnow_str()
         asset_clean = asset.replace("USDT", "").replace("USD", "").upper()
 
-        default_prices = {"BTC": 67500.0, "ETH": 3500.0, "SOL": 150.0, "DOGE": 0.12}
-        fallback_p = default_prices.get(asset_clean, 100.0)
-
         if not candles_1h or len(candles_1h) < 2:
-            closes = [fallback_p]
-            current_price = fallback_p
-            highs = [fallback_p]
-            lows = [fallback_p]
-            volumes = [100.0]
-            quote_volumes = [fallback_p * 100.0]
-            recent_returns = [0.0]
-            returns_1h = [0.0]
-            realized_vol_24h = 0.015
-            rsi_14 = 50.0
-            macd_line, signal_line, macd_hist = 0.0, 0.0, 0.0
-            atr_14 = fallback_p * 0.01
-            vwap = fallback_p
-            bb_middle, bb_upper, bb_lower, bb_width_pct = fallback_p, fallback_p * 1.02, fallback_p * 0.98, 4.0
-            return_skewness, return_kurtosis = 0.0, 3.0
-            price_trend_5d = 0.0
-            perf_1h_pct, perf_24h_pct = 0.0, 0.0
-        else:
-            closes = [float(c["close"]) for c in candles_1h]
-            current_price = closes[-1]
-            highs = [float(c["high"]) for c in candles_1h]
-            lows = [float(c["low"]) for c in candles_1h]
-            volumes = [float(c.get("volume_base", c.get("volume", 0.0))) for c in candles_1h]
-            quote_volumes = [float(c.get("volume_quote", c.get("quote_volume", closes[i] * volumes[i]))) for i, c in enumerate(candles_1h)]
+            raise DataUnavailableException(f"Insufficient candle history to compute quantitative features for {asset}")
 
-            # 1. Price & Return Dynamics
-            returns_1h = [(closes[i] - closes[i - 1]) / closes[i - 1] for i in range(1, len(closes))]
-            recent_returns = returns_1h[-24:] if len(returns_1h) >= 24 else returns_1h
-            std_val = statistics.stdev(recent_returns) if len(recent_returns) > 1 else 0.0
-            realized_vol_24h = float(std_val * math.sqrt(24))
+        closes = [float(c["close"]) for c in candles_1h]
+        current_price = closes[-1]
+        highs = [float(c["high"]) for c in candles_1h]
+        lows = [float(c["low"]) for c in candles_1h]
+        volumes = [float(c.get("volume_base", c.get("volume", 0.0))) for c in candles_1h]
+        quote_volumes = [float(c.get("volume_quote", c.get("quote_volume", closes[i] * volumes[i]))) for i, c in enumerate(candles_1h)]
 
-            # 2. Technical Indicators
-            rsi_14 = self._compute_rsi(closes, period=14)
-            macd_line, signal_line, macd_hist = self._compute_macd(closes)
-            atr_14 = self._compute_atr(highs, lows, closes, period=14)
-            vwap = self._compute_vwap(closes, volumes, quote_volumes)
+        # 1. Price & Return Dynamics
+        returns_1h = [(closes[i] - closes[i - 1]) / closes[i - 1] for i in range(1, len(closes))]
+        recent_returns = returns_1h[-24:] if len(returns_1h) >= 24 else returns_1h
+        std_val = statistics.stdev(recent_returns) if len(recent_returns) > 1 else 0.0
+        realized_vol_24h = float(std_val * math.sqrt(24))
 
-            # Bollinger Bands (20, 2)
-            bb_sample = closes[-20:] if len(closes) >= 20 else closes
-            bb_middle = float(statistics.mean(bb_sample))
-            bb_std = float(statistics.stdev(bb_sample)) if len(bb_sample) > 1 else 0.0
-            bb_upper = bb_middle + 2.0 * bb_std
-            bb_lower = bb_middle - 2.0 * bb_std
-            bb_width_pct = ((bb_upper - bb_lower) / bb_middle * 100.0) if bb_middle > 0 else 0.0
+        # 2. Technical Indicators
+        rsi_14 = self._compute_rsi(closes, period=14)
+        macd_line, signal_line, macd_hist = self._compute_macd(closes)
+        atr_14 = self._compute_atr(highs, lows, closes, period=14)
+        vwap = self._compute_vwap(closes, volumes, quote_volumes)
 
-            # Statistical Moments
-            return_skewness = self._compute_skew(recent_returns)
-            return_kurtosis = self._compute_kurtosis(recent_returns)
+        # Bollinger Bands (20, 2)
+        bb_sample = closes[-20:] if len(closes) >= 20 else closes
+        bb_middle = float(statistics.mean(bb_sample))
+        bb_std = float(statistics.stdev(bb_sample)) if len(bb_sample) > 1 else 0.0
+        bb_upper = bb_middle + 2.0 * bb_std
+        bb_lower = bb_middle - 2.0 * bb_std
+        bb_width_pct = ((bb_upper - bb_lower) / bb_middle * 100.0) if bb_middle > 0 else 0.0
 
-            # Multi-Timeframe Momentum
-            perf_1h_pct = ((closes[-1] - closes[-2]) / closes[-2] * 100.0) if len(closes) >= 2 else 0.0
-            perf_24h_pct = ((closes[-1] - closes[-24]) / closes[-24] * 100.0) if len(closes) >= 24 else perf_1h_pct
-            price_trend_5d = ((closes[-1] - closes[0]) / closes[0]) if closes[0] > 0 else 0.0
+        # Statistical Moments
+        return_skewness = self._compute_skew(recent_returns)
+        return_kurtosis = self._compute_kurtosis(recent_returns)
+
+        # Multi-Timeframe Momentum
+        perf_1h_pct = ((closes[-1] - closes[-2]) / closes[-2] * 100.0) if len(closes) >= 2 else 0.0
+        perf_24h_pct = ((closes[-1] - closes[-24]) / closes[-24] * 100.0) if len(closes) >= 24 else perf_1h_pct
+        price_trend_5d = ((closes[-1] - closes[0]) / closes[0]) if closes[0] > 0 else 0.0
 
         # 3. Microstructure & Order Book
         microstructure_feats: Optional[Dict[str, Any]] = None
@@ -243,11 +224,7 @@ class FeatureEngineeringEngine:
             "microstructure": microstructure_feats,
             "derivatives": derivatives_feats,
             "cross_asset_dynamics": cross_asset_feats,
-            "meme_sector_factor": {
-                "meme_sector_dominance_pct": 14.5,
-                "social_volume_zscore": 1.8,
-                "retail_flow_ratio": 0.72
-            } if asset_clean in ["DOGE", "SHIB", "PEPE", "FLOKI", "BONK", "WIF"] else None
+            "meme_sector_factor": None
         }
 
 

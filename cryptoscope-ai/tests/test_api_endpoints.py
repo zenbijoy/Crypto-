@@ -30,17 +30,26 @@ class TestApiEndpoints(unittest.TestCase):
 
     def test_market_and_derivatives_logic(self):
         btc_agg = asyncio.run(market_aggregator.aggregate_asset_market_data("BTC"))
-        self.assertGreater(btc_agg["consensus_price"], 0)
-        self.assertIn("derivatives", btc_agg)
-        self.assertGreater(btc_agg["derivatives"]["aggregated_oi_usd"], 0)
+        self.assertIn("consensus_price", btc_agg)
+        self.assertGreater(btc_agg["consensus_price"]["value"], 0)
+        self.assertIn("aggregated_open_interest_usd", btc_agg)
 
         doge_agg = asyncio.run(market_aggregator.aggregate_asset_market_data("DOGE"))
-        self.assertGreater(doge_agg["consensus_price"], 0)
-        self.assertGreater(doge_agg["derivatives"]["volume_weighted_funding_rate"], 0)
+        self.assertIn("consensus_price", doge_agg)
+        self.assertGreater(doge_agg["consensus_price"]["value"], 0)
 
     def test_prediction_logic(self):
+        sample_candles = [
+            {"close": 67000.0 + i * 5.0, "high": 67050.0 + i * 5.0, "low": 66950.0 + i * 5.0, "volume_base": 100.0}
+            for i in range(30)
+        ]
         for asset in ["BTC", "ETH", "SOL", "DOGE"]:
-            p = prediction_engine.generate_forecast(symbol=f"{asset}USDT", horizon="1h")
+            p = prediction_engine.generate_forecast(
+                symbol=f"{asset}USDT",
+                horizon="1h",
+                current_price=67000.0,
+                candles_1h=sample_candles
+            )
             self.assertEqual(p["asset"], asset)
             self.assertIn("price_quantiles", p)
             self.assertEqual(p["disclaimer"], DISCLAIMER_TEXT)

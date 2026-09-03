@@ -1,0 +1,25 @@
+{
+  "symbol": "BTCUSDT",
+  "interval": "15m",
+  "file_path": "data/raw/BTCUSDT_15m.parquet",
+  "sha256": "6e5ab61db50a82dd1c1c4918d3a44005bed19c4ce7acda34875031ff1618b8e0",
+  "total_bars": 2880,
+  "start_time_ms": 1785825900000,
+  "start_iso": "2026-08-04T06:45:00+00:00",
+  "end_time_ms": 1788417899999,
+  "end_iso": "2026-09-03T06:44:59.999000+00:00",
+  "columns": [
+    "open_time",
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
+    "close_time",
+    "quote_volume",
+    "trades",
+    "taker_buy_base",
+    "taker_buy_quote"
+  ],
+  "created_at": "2026-09-03T06:35:18.877468+00:00"
+}

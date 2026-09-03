@@ -27,7 +27,7 @@ class TestFeatureEngineering(unittest.TestCase):
         self.assertGreater(btc_features["technical_indicators"]["rsi_14"], 0)
         self.assertEqual(btc_features["microstructure"]["spread_bps"], 1.2)
 
-        # DOGE Feature Computation (with Meme Sector Factor)
+        # DOGE Feature Computation
         doge_candles = [
             {"close": 0.120 + i * 0.0001, "high": 0.122, "low": 0.119, "volume_base": 5000000.0}
             for i in range(50)
@@ -35,8 +35,14 @@ class TestFeatureEngineering(unittest.TestCase):
         doge_features = feature_engine.compute_all_features("DOGE", doge_candles, orderbook, btc_candles_1h=candles)
         self.assertEqual(doge_features["asset"], "DOGE")
         self.assertIn("meme_sector_factor", doge_features)
-        self.assertGreater(doge_features["meme_sector_factor"]["meme_sector_dominance_pct"], 0)
+        # Truthful check: meme_sector_factor is None without real social/on-chain telemetry
+        self.assertIsNone(doge_features["meme_sector_factor"])
         self.assertIsNotNone(doge_features["cross_asset_dynamics"]["btc_correlation_24h"])
+
+    def test_zero_fabricated_fallbacks(self):
+        from core.exceptions import DataUnavailableException
+        with self.assertRaises(DataUnavailableException):
+            feature_engine.compute_all_features("BTC", candles_1h=[])
 
 if __name__ == "__main__":
     unittest.main()

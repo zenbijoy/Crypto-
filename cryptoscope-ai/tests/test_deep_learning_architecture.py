@@ -33,7 +33,11 @@ class TestDeepLearningArchitecture(unittest.TestCase):
             self.assertIn(sample["barrier_hit"], ["UPPER", "LOWER", "TIME_EXPIRY"])
 
     def test_specialist_models_and_meta_ensemble(self):
-        f_vec = feature_engine.compute_all_features("BTC", [])
+        sample_candles = [
+            {"close": 67000.0 + i * 5.0, "high": 67050.0 + i * 5.0, "low": 66950.0 + i * 5.0, "volume_base": 100.0}
+            for i in range(30)
+        ]
+        f_vec = feature_engine.compute_all_features("BTC", sample_candles)
         
         p_tab = tabular_expert.predict(f_vec)
         p_flow = orderflow_tcn_expert.predict(f_vec)

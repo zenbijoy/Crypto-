@@ -609,12 +609,68 @@ async def get_asset_model_readiness(asset: str):
     return canonical_envelope(readiness)
 
 # ==========================================
-# 6. System & Resilience Endpoints (Section 65)
+# 6. System & Truthful Health Endpoints (Section 65 & Phase 23)
 # ==========================================
 
+@app.get("/api/v1/health")
+@app.get("/v1/health")
+@app.get("/api/v1/system/health")
+async def get_system_health():
+    """
+    Truthful System Health check.
+    Never returns HEALTHY if database, primary stream, or critical infrastructure is down.
+    """
+    from services.market_stream.supervisor import stream_supervisor
+    from services.data_quality import data_quality_service
+    from database.session import engine
+    from sqlalchemy import text
+
+    # 1. Database check
+    db_ok = False
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        db_ok = True
+    except Exception:
+        db_ok = False
+
+    # 2. Binance Stream & REST check
+    stream_health = stream_supervisor.get_health()
+    ws_connected = stream_health.get("is_connected", False)
+
+    binance_rest = "DOWN"
+    try:
+        bh = await registry.binance.health_check()
+        binance_rest = bh.get("status", "DOWN")
+    except Exception:
+        binance_rest = "DOWN"
+
+    # Overall system status determination
+    if db_ok and ws_connected and binance_rest == "HEALTHY":
+        overall_status = "HEALTHY"
+    elif db_ok and (ws_connected or binance_rest == "HEALTHY"):
+        overall_status = "DEGRADED"
+    else:
+        overall_status = "DOWN"
+
+    return canonical_envelope({
+        "status": overall_status,
+        "service": settings.PROJECT_NAME,
+        "version": "2.1.0",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "database": "CONNECTED" if db_ok else "DISCONNECTED",
+        "binance_rest": binance_rest,
+        "binance_ws": "CONNECTED" if ws_connected else "DISCONNECTED",
+        "active_ws_clients": len(ws_manager.active_connections),
+        "registry_assets_count": len(registry.list_all_assets()),
+        "quality_events_count": len(data_quality_service.quality_events_log)
+    })
+
+
+@app.get("/api/v1/health/providers")
 @app.get("/api/v1/system/providers")
 @app.get("/v1/system/providers")
-async def get_system_providers():
+async def get_health_providers():
     binance_health = await registry.binance.health_check()
     providers_status = [
         binance_health,
@@ -622,9 +678,10 @@ async def get_system_providers():
         {"provider": "OKX", "status": "PLANNED", "latency_ms": -1.0, "tier": "SECONDARY"},
         {"provider": "COINBASE", "status": "PLANNED", "latency_ms": -1.0, "tier": "SPOT_BENCHMARK"},
         {"provider": "HYPERLIQUID", "status": "PLANNED", "latency_ms": -1.0, "tier": "DEX_DERIVATIVES"},
-        {"provider": "COINANK", "status": "ENABLED" if settings.COINANK_API_KEY else "OPTIONAL_DEGRADED", "latency_ms": -1.0, "tier": "DERIVATIVES_ENRICHMENT"},
-        {"provider": "COINGECKO", "status": "CONNECTED", "latency_ms": 50.0, "tier": "METADATA"},
-        {"provider": "DEFILLAMA", "status": "CONNECTED", "latency_ms": 50.0, "tier": "DEFI"}
+        {"provider": "COINANK", "status": "ENABLED" if settings.COINANK_API_KEY else "OPTIONAL_DEGRADED", "tier": "DERIVATIVES_ENRICHMENT"},
+        {"provider": "COINGECKO", "status": "CONNECTED", "tier": "METADATA"},
+        {"provider": "DEFILLAMA", "status": "CONNECTED", "tier": "DEFI"},
+        {"provider": "FRED", "status": "ENABLED" if settings.FRED_API_KEY else "NOT_CONFIGURED", "tier": "MACRO"}
     ]
     return canonical_envelope({
         "providers": providers_status,
@@ -632,18 +689,43 @@ async def get_system_providers():
     })
 
 
-@app.get("/api/v1/system/health")
-@app.get("/v1/system/health")
-async def get_system_health():
+@app.get("/api/v1/health/streams")
+async def get_health_streams():
+    from services.market_stream.supervisor import stream_supervisor
+    from services.market_stream.subscriptions import stream_registry
     return canonical_envelope({
-        "status": "HEALTHY",
-        "service": settings.PROJECT_NAME,
-        "version": "2.1.0",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "database": "CONNECTED",
-        "ws_active_clients": len(ws_manager.active_connections),
-        "registry_assets_count": len(registry.list_all_assets()),
-        "anti_leakage_enforced": True
+        "stream_supervisor": stream_supervisor.get_health(),
+        "active_subscriptions": stream_registry.get_all_streams(),
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    })
+
+
+@app.get("/api/v1/health/storage")
+async def get_health_storage():
+    import shutil
+    total, used, free = shutil.disk_usage("/")
+    return canonical_envelope({
+        "disk": {
+            "total_gb": round(total / (2**30), 2),
+            "used_gb": round(used / (2**30), 2),
+            "free_gb": round(free / (2**30), 2)
+        },
+        "database_url_configured": bool(settings.DATABASE_URL),
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    })
+
+
+@app.get("/api/v1/health/data-quality")
+async def get_health_data_quality():
+    from services.data_quality import data_quality_service
+    events = data_quality_service.quality_events_log
+    rejection_count = sum(1 for e in events if e.get("severity") in ["CRITICAL", "REJECTED"])
+    warning_count = sum(1 for e in events if e.get("severity") == "WARNING")
+    return canonical_envelope({
+        "total_logged_events": len(events),
+        "rejections": rejection_count,
+        "warnings": warning_count,
+        "recent_events": events[-10:] if events else []
     })
 
 # ==========================================
