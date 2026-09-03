@@ -68,3 +68,7 @@ class RegimeDetectionEngine:
             "confidence": 81,
             "description": desc
         }
+
+
+regime_engine = RegimeDetectionEngine()
+

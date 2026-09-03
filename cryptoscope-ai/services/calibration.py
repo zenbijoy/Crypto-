@@ -48,3 +48,7 @@ class CalibrationEngine:
         
         raw_score = base_conf * factor
         return int(max(0, min(100, round(raw_score))))
+
+
+calibration_engine = CalibrationEngine()
+

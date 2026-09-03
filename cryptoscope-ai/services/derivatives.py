@@ -62,3 +62,7 @@ class DerivativesEngine:
             "long_liquidation_usd": long_liq_usd,
             "short_liquidation_usd": short_liq_usd
         }
+
+
+derivatives_engine = DerivativesEngine("BTCUSDT")
+

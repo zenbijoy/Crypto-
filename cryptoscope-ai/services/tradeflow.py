@@ -49,3 +49,7 @@ class TradeFlowEngine:
             "whale_threshold": round(whale_threshold, 2),
             "trade_intensity": intensity
         }
+
+
+tradeflow_engine = TradeFlowEngine(symbol="BTCUSDT")
+

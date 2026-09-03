@@ -68,3 +68,7 @@ class RiskEngine:
             "circuit_breakers_ok": len(veto_reasons) == 0,
             "risk_level": "HIGH" if decision == RiskDecision.REJECT.value else ("MEDIUM" if decision == RiskDecision.REDUCE.value else "LOW")
         }
+
+
+risk_engine = RiskEngine()
+

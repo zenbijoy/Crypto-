@@ -12,6 +12,29 @@ class DataUnavailableException(CryptoScopeException):
     def __init__(self, message: str = "Market feed or quantitative data is currently unavailable"):
         super().__init__(message, code="DATA_UNAVAILABLE")
 
+class DataUnavailableError(DataUnavailableException):
+    pass
+
+class ProviderError(CryptoScopeException):
+    def __init__(self, message: str = "Exchange provider error encountered"):
+        super().__init__(message, code="PROVIDER_ERROR")
+
+class RateLimitError(CryptoScopeException):
+    def __init__(self, message: str = "Provider rate limit reached"):
+        super().__init__(message, code="RATE_LIMIT_EXCEEDED")
+
+class ProviderUnavailableError(CryptoScopeException):
+    def __init__(self, message: str = "Provider is currently unavailable or unreachable"):
+        super().__init__(message, code="PROVIDER_UNAVAILABLE")
+
+class ModelUnavailableException(CryptoScopeException):
+    def __init__(self, message: str = "Trained ML model artifact is unavailable"):
+        super().__init__(message, code="MODEL_UNAVAILABLE")
+
+class DataQualityException(CryptoScopeException):
+    def __init__(self, message: str = "Data quality invariant violation"):
+        super().__init__(message, code="DATA_QUALITY_VIOLATION")
+
 class CircuitBreakerTriggeredException(CryptoScopeException):
     def __init__(self, reason: str):
         super().__init__(f"Circuit breaker active: {reason}", code="CIRCUIT_BREAKER_TRIGGERED")
@@ -23,3 +46,4 @@ class ModelDriftException(CryptoScopeException):
 class InsufficientMarginException(CryptoScopeException):
     def __init__(self, message: str = "Insufficient simulated balance for order execution"):
         super().__init__(message, code="INSUFFICIENT_MARGIN")
+

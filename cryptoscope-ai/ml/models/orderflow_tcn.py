@@ -1,33 +1,44 @@
 """
-CryptoScope AI - Layer 2: Microstructure & Orderflow TCN Expert
-Specialist model processing L2 order book depth, Order Book Imbalance (OBI), microprice,
-bid/ask spread dynamics, and Cumulative Volume Delta (CVD) aggressive trade flow.
+CryptoScope AI - Layer 2: Heuristic Orderflow Baseline (Step 12)
+Classified explicitly as EXPERIMENTAL_HEURISTIC baseline.
+Not a trained Temporal Convolutional Network (TCN) deep learning artifact.
 """
 import math
-from typing import Dict, Any, List
+from typing import Dict, Any
 
-class OrderflowTCNExpert:
-    def __init__(self, name: str = "Orderflow_TCN_Expert"):
+class HeuristicOrderflowBaseline:
+    def __init__(self, name: str = "HeuristicOrderflowBaseline"):
         self.name = name
+        self.model_type = "EXPERIMENTAL_HEURISTIC"
+        self.is_trained_deep_learning = False
+        self.is_heuristic_baseline = True
 
     def predict(self, feature_vector: Dict[str, Any]) -> Dict[str, Any]:
-        micro = feature_vector.get("microstructure", {})
+        micro = feature_vector.get("microstructure")
         price_feats = feature_vector.get("price_features", {})
-        
-        mid = micro.get("microprice", price_feats.get("close", 67500.0))
-        close = price_feats.get("close", 67500.0)
-        spread_bps = micro.get("spread_bps", 1.2)
-        obi_10bps = micro.get("orderbook_imbalance_10bps", 0.0)  # -1.0 to +1.0
-        book_convexity = micro.get("book_convexity", 1.0)
-        
-        # Microprice drift relative to mid
-        micro_drift = (mid - close) / close if close > 0 else 0.0
+        close = price_feats.get("close")
 
-        # TCN receptive field aggregation
-        # Strong positive OBI + positive microprice drift indicates buy wall pressure
+        # If microstructure data is absent or invalid, abstain neutrally
+        if not micro or not close:
+            return {
+                "expert_name": self.name,
+                "model_type": self.model_type,
+                "is_trained_deep_learning": False,
+                "is_heuristic_baseline": True,
+                "probabilities": {"up": 0.3333, "neutral": 0.3334, "down": 0.3333},
+                "expected_log_return": 0.0,
+                "microstructure_pressure": 0.0,
+                "expert_confidence": 33.33,
+                "status": "DATA_UNAVAILABLE"
+            }
+
+        mid = micro.get("microprice", close)
+        spread_bps = micro.get("spread_bps", 1.5)
+        obi_10bps = micro.get("orderbook_imbalance_10bps", 0.0)
+
+        micro_drift = (mid - close) / close if close > 0 else 0.0
         flow_score = (obi_10bps * 0.55) + (micro_drift * 50.0 * 0.35)
-        
-        # Spread penalty: wider spreads reduce directional conviction
+
         spread_factor = max(0.2, 1.0 - (spread_bps / 15.0))
         flow_score *= spread_factor
 
@@ -44,10 +55,13 @@ class OrderflowTCNExpert:
         p_down = exp_d / s
         p_neutral = exp_n / s
 
-        expected_log_return = (p_up - p_down) * 0.0045 * book_convexity
+        expected_log_return = (p_up - p_down) * 0.0045
 
         return {
             "expert_name": self.name,
+            "model_type": self.model_type,
+            "is_trained_deep_learning": False,
+            "is_heuristic_baseline": True,
             "probabilities": {
                 "up": round(p_up, 4),
                 "neutral": round(p_neutral, 4),
@@ -55,7 +69,12 @@ class OrderflowTCNExpert:
             },
             "expected_log_return": round(expected_log_return, 6),
             "microstructure_pressure": round(obi_10bps, 3),
-            "expert_confidence": round(float(max(p_up, p_down) * 100), 2)
+            "expert_confidence": round(float(max(p_up, p_down) * 100), 2),
+            "status": "ACTIVE"
         }
 
-orderflow_tcn_expert = OrderflowTCNExpert()
+# Alias for backward compatibility
+OrderflowTCNExpert = HeuristicOrderflowBaseline
+orderflow_expert = HeuristicOrderflowBaseline()
+orderflow_tcn_expert = orderflow_expert
+

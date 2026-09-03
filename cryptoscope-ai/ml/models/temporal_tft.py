@@ -1,27 +1,26 @@
 """
-CryptoScope AI - Layer 3: Temporal Multi-Horizon & Cross-Asset Transformer Expert
-Specialist model learning multi-horizon sequence patterns, cross-asset lead-lag relationships
-(BTC beta, altcoin breadth, DOGE meme spillover), and quantile fan chart projections.
+CryptoScope AI - Layer 3: Heuristic Temporal Baseline (Step 12)
+Classified explicitly as EXPERIMENTAL_HEURISTIC baseline.
+Not a trained Temporal Fusion Transformer (TFT) deep learning artifact.
 """
 import math
-from typing import Dict, Any, List
+from typing import Dict, Any
 
-class TemporalTransformerExpert:
-    def __init__(self, name: str = "Temporal_TFT_Expert"):
+class HeuristicTemporalBaseline:
+    def __init__(self, name: str = "HeuristicTemporalBaseline"):
         self.name = name
+        self.model_type = "EXPERIMENTAL_HEURISTIC"
+        self.is_trained_deep_learning = False
+        self.is_heuristic_baseline = True
 
     def predict(self, feature_vector: Dict[str, Any], horizon: str = "1h") -> Dict[str, Any]:
-        cross = feature_vector.get("cross_asset_dynamics", {})
-        price_feats = feature_vector.get("price_features", {})
-        meme = feature_vector.get("meme_sector_factor", {})
+        cross = feature_vector.get("cross_asset_dynamics") or {}
+        price_feats = feature_vector.get("price_features") or {}
         
-        close = price_feats.get("close", 67500.0)
+        close = price_feats.get("close", 1.0)
         vol_24h = price_feats.get("realized_volatility_24h", 0.02)
-        btc_corr = cross.get("btc_correlation_24h", 1.0)
-        btc_beta = cross.get("btc_beta", 1.0)
         rel_strength = cross.get("relative_strength_vs_btc_24h_pct", 0.0)
 
-        # Multi-horizon scaling multiplier
         horizon_multiplier_map = {
             "5m": 0.20,
             "15m": 0.40,
@@ -33,13 +32,7 @@ class TemporalTransformerExpert:
         }
         h_mult = horizon_multiplier_map.get(horizon, 1.0)
 
-        # Cross-asset score
         seq_score = (rel_strength / 5.0) * 0.40
-        if meme:
-            # Special meme factor weighting for DOGE / viral coins
-            viral_z = meme.get("viral_social_momentum_zscore", 0.0)
-            seq_score += (viral_z / 4.0) * 0.35
-
         logit_up = seq_score * 2.0
         logit_down = -seq_score * 2.0
         logit_neutral = max(0.0, 1.0 - abs(seq_score) * 1.5)
@@ -55,7 +48,6 @@ class TemporalTransformerExpert:
 
         expected_log_ret = (p_up - p_down) * (vol_24h * 0.5) * h_mult
         
-        # Calculate Quantiles P10, P25, P50, P75, P90
         p50_ret = expected_log_ret
         step_sigma = vol_24h * 0.6 * math.sqrt(h_mult)
         
@@ -72,6 +64,9 @@ class TemporalTransformerExpert:
 
         return {
             "expert_name": self.name,
+            "model_type": self.model_type,
+            "is_trained_deep_learning": False,
+            "is_heuristic_baseline": True,
             "horizon": horizon,
             "probabilities": {
                 "up": round(p_up, 4),
@@ -79,14 +74,17 @@ class TemporalTransformerExpert:
                 "down": round(p_down, 4)
             },
             "expected_log_return": round(expected_log_ret, 6),
-            "price_quantiles": {
-                "p10": round(p10_price, 4),
-                "p25": round(p25_price, 4),
-                "p50": round(p50_price, 4),
-                "p75": round(p75_price, 4),
-                "p90": round(p90_price, 4)
-            },
-            "expert_confidence": round(float(max(p_up, p_down) * 100), 2)
+            "quantiles": {
+                "p10": round(p10_price, 2),
+                "p25": round(p25_price, 2),
+                "p50": round(p50_price, 2),
+                "p75": round(p75_price, 2),
+                "p90": round(p90_price, 2)
+            }
         }
 
-temporal_transformer_expert = TemporalTransformerExpert()
+# Alias for backward compatibility
+TemporalTransformerExpert = HeuristicTemporalBaseline
+temporal_expert = HeuristicTemporalBaseline()
+temporal_transformer_expert = temporal_expert
+

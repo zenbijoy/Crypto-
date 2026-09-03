@@ -83,3 +83,7 @@ class OrderBookEngine:
             "book_convexity": round(convexity, 4),
             "liquidity_walls": walls[:4]
         }
+
+
+orderbook_engine = OrderBookEngine(symbol="BTCUSDT")
+

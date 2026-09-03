@@ -5,7 +5,7 @@ import com.example.core.model.*
 import com.example.core.network.datasource.FuturesRemoteDataSource
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import kotlin.random.Random
+
 
 private data class ForecastRawOutputs(
     val pUp: Double,
@@ -85,31 +85,17 @@ class CryptoScopeRepository(
             fetchRemoteFuturesData()
         }
 
-        // Real-time market tick updates and periodic remote poll
+        // Real-time market tick updates from live remote API
         repositoryScope.launch {
-            var tickCount = 0
             while (isActive) {
-                delay(1200)
-                tickCount++
                 if (_isLiveConnected.value && !_circuitBreakerActive.value) {
-                    val currentMap = _livePrices.value.toMutableMap()
-                    val btcPrice = (currentMap["BTCUSDT"] ?: 109420.30) + Random.nextDouble(-12.0, 15.0)
-                    val ethPrice = (currentMap["ETHUSDT"] ?: 4386.50) + Random.nextDouble(-1.2, 1.5)
-                    val solPrice = (currentMap["SOLUSDT"] ?: 208.14) + Random.nextDouble(-0.3, 0.35)
-
-                    currentMap["BTCUSDT"] = Math.round(btcPrice * 100.0) / 100.0
-                    currentMap["ETHUSDT"] = Math.round(ethPrice * 100.0) / 100.0
-                    currentMap["SOLUSDT"] = Math.round(solPrice * 100.0) / 100.0
-                    _livePrices.value = currentMap
+                    fetchRemoteFuturesData()
                     _sequenceNumber.value += 1
-
-                    // Every ~15 seconds, refresh real funding & open interest from remote API
-                    if (tickCount % 12 == 0) {
-                        fetchRemoteFuturesData()
-                    }
                 }
+                delay(3000)
             }
         }
+
     }
 
     /**

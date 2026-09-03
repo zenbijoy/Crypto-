@@ -101,7 +101,7 @@ class MetaEnsembleEngine:
             "expected_log_return": round(expected_log_return, 6),
             "expected_price": round(expected_price, 4),
             "price_quantiles": quantiles,
-            "specialist_outputs": {s["expert_name"]: s for s in specialist_outputs}
+            "specialist_outputs": {s.get("expert_name", s.get("model_name", f"expert_{i}")): s for i, s in enumerate(specialist_outputs)}
         }
 
 meta_ensemble_engine = MetaEnsembleEngine()

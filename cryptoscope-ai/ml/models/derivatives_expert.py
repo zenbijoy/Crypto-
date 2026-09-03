@@ -14,10 +14,10 @@ class DerivativesExpert:
         deriv = feature_vector.get("derivatives", {})
         price_feats = feature_vector.get("price_features", {})
         
-        funding_z = deriv.get("funding_zscore_7d", 0.0)
-        oi_velocity = deriv.get("oi_velocity_24h_pct", 0.0)
-        liq_pressure = deriv.get("liquidation_pressure_score", 50.0)
-        regime = deriv.get("price_oi_regime", "NEUTRAL")
+        funding_z = float(deriv.get("funding_zscore_7d") or 0.0)
+        oi_velocity = float(deriv.get("oi_velocity_24h_pct") or 0.0)
+        liq_pressure = float(deriv.get("liquidation_pressure_score") or 50.0)
+        regime = deriv.get("price_oi_regime") or "NEUTRAL"
         
         # Derivatives signal calculation
         # High positive funding Z-score (> 2.0) with over-leveraged longs signals short squeeze exhaustion / long liquidation vulnerability

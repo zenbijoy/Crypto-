@@ -59,3 +59,7 @@ class MarketStructureEngine:
             "support_zones": sup_zones[:3] if sup_zones else [{"lower": round(current_price * 0.98, 1), "upper": round(current_price * 0.985, 1), "strength": "ESTIMATED"}],
             "resistance_zones": res_zones[:3] if res_zones else [{"lower": round(current_price * 1.015, 1), "upper": round(current_price * 1.02, 1), "strength": "ESTIMATED"}],
         }
+
+
+market_structure_engine = MarketStructureEngine("BTCUSDT")
+

@@ -279,36 +279,66 @@ async def get_market_summary(asset: str):
 @app.get("/api/v1/market/top-gainers")
 @app.get("/v1/market/top-gainers")
 async def get_top_gainers():
-    gainers = [
-        {"asset": "DOGE", "price": 0.1242, "change_24h_pct": 14.8, "volume_24h_usd": 1_850_000_000, "tier": "TIER_1"},
-        {"asset": "SOL", "price": 148.50, "change_24h_pct": 8.4, "volume_24h_usd": 3_400_000_000, "tier": "TIER_1"},
-        {"asset": "SUI", "price": 1.95, "change_24h_pct": 7.9, "volume_24h_usd": 680_000_000, "tier": "TIER_2"},
-        {"asset": "ETH", "price": 3520.0, "change_24h_pct": 4.2, "volume_24h_usd": 14_200_000_000, "tier": "TIER_1"},
-        {"asset": "BTC", "price": 67500.0, "change_24h_pct": 2.5, "volume_24h_usd": 34_500_000_000, "tier": "TIER_1"}
-    ]
-    return canonical_envelope(gainers)
+    try:
+        tickers = await registry.binance.fetch_tickers()
+        sorted_tickers = sorted(tickers, key=lambda t: t.change_24h_pct, reverse=True)[:10]
+        gainers = [
+            {
+                "asset": t.base_asset,
+                "symbol": t.symbol,
+                "price": t.price,
+                "change_24h_pct": round(t.change_24h_pct, 2),
+                "volume_24h_usd": round(t.volume_24h_quote, 2),
+                "provider": "BINANCE"
+            }
+            for t in sorted_tickers
+        ]
+        return canonical_envelope(gainers, sources=["BINANCE"])
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"PROVIDER_UNAVAILABLE: {str(exc)}")
 
 @app.get("/api/v1/market/most-active")
 @app.get("/v1/market/most-active")
 async def get_most_active():
-    most_active = [
-        {"asset": "BTC", "volume_24h_usd": 34_500_000_000, "price": 67500.0, "trades_24h": 4_200_000},
-        {"asset": "ETH", "volume_24h_usd": 14_200_000_000, "price": 3520.0, "trades_24h": 2_100_000},
-        {"asset": "SOL", "volume_24h_usd": 3_400_000_000, "price": 148.50, "trades_24h": 1_450_000},
-        {"asset": "DOGE", "volume_24h_usd": 1_850_000_000, "price": 0.1242, "trades_24h": 980_000}
-    ]
-    return canonical_envelope(most_active)
+    try:
+        tickers = await registry.binance.fetch_tickers()
+        sorted_tickers = sorted(tickers, key=lambda t: t.volume_24h_quote, reverse=True)[:10]
+        most_active = [
+            {
+                "asset": t.base_asset,
+                "symbol": t.symbol,
+                "volume_24h_usd": round(t.volume_24h_quote, 2),
+                "price": t.price,
+                "change_24h_pct": round(t.change_24h_pct, 2),
+                "provider": "BINANCE"
+            }
+            for t in sorted_tickers
+        ]
+        return canonical_envelope(most_active, sources=["BINANCE"])
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"PROVIDER_UNAVAILABLE: {str(exc)}")
 
 @app.get("/api/v1/market/trending")
 @app.get("/v1/market/trending")
 async def get_trending():
-    trending = [
-        {"asset": "DOGE", "social_score": 94.2, "search_trend_24h_pct": 48.5, "viral_catalyst": "Meme sector momentum", "tier": "TIER_1"},
-        {"asset": "SOL", "social_score": 88.0, "search_trend_24h_pct": 24.1, "viral_catalyst": "DEX volume surge", "tier": "TIER_1"},
-        {"asset": "BTC", "social_score": 85.4, "search_trend_24h_pct": 12.0, "viral_catalyst": "ETF net inflows", "tier": "TIER_1"},
-        {"asset": "ETH", "social_score": 79.1, "search_trend_24h_pct": 8.5, "viral_catalyst": "L2 gas burn rate", "tier": "TIER_1"}
-    ]
-    return canonical_envelope(trending)
+    try:
+        tickers = await registry.binance.fetch_tickers()
+        # High volatility / high relative momentum
+        sorted_tickers = sorted(tickers, key=lambda t: abs(t.change_24h_pct), reverse=True)[:10]
+        trending = [
+            {
+                "asset": t.base_asset,
+                "symbol": t.symbol,
+                "price": t.price,
+                "change_24h_pct": round(t.change_24h_pct, 2),
+                "volume_24h_usd": round(t.volume_24h_quote, 2),
+                "provider": "BINANCE"
+            }
+            for t in sorted_tickers
+        ]
+        return canonical_envelope(trending, sources=["BINANCE"])
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"PROVIDER_UNAVAILABLE: {str(exc)}")
 
 # ==========================================
 # 3. Derivatives Intelligence Endpoints (Section 62)
@@ -317,48 +347,46 @@ async def get_trending():
 @app.get("/api/v1/derivatives/{asset}/overview")
 @app.get("/v1/derivatives/{asset}/overview")
 async def get_derivatives_overview(asset: str):
-    overview = await market_aggregator.aggregate_asset_market_data(asset)
-    coinank_info = await coinank.get_derivatives_intelligence(asset)
-    return canonical_envelope({
-        "asset": asset.upper(),
-        "derivatives_summary": overview["derivatives"],
-        "liquidation_intelligence": coinank_info["liquidation_heatmap"],
-        "aggregated_venues": overview["venues"]
-    })
+    insts = registry.get_instruments_for_asset(asset)
+    inst = insts[0] if insts else None
+    if not inst:
+        raise HTTPException(status_code=404, detail=f"Asset {asset} not found")
+    snap = await registry.binance.fetch_derivatives_snapshot(inst)
+    return canonical_envelope(snap.__dict__, sources=["BINANCE"])
 
 @app.get("/api/v1/derivatives/{asset}/open-interest")
 @app.get("/v1/derivatives/{asset}/open-interest")
 async def get_open_interest(asset: str):
-    base_oi = 28_400_000_000.0 if asset.upper() == "BTC" else (1_450_000_000.0 if asset.upper() == "DOGE" else 4_200_000_000.0)
+    insts = registry.get_instruments_for_asset(asset)
+    inst = insts[0] if insts else None
+    if not inst:
+        raise HTTPException(status_code=404, detail=f"Asset {asset} not found")
+    oi_usd = await registry.binance.fetch_open_interest(inst)
     return canonical_envelope({
         "asset": asset.upper(),
-        "total_open_interest_usd": base_oi,
-        "oi_velocity_1h_pct": 0.45,
-        "oi_velocity_24h_pct": 4.85,
-        "oi_by_exchange": {
-            "BINANCE": round(base_oi * 0.44, 2),
-            "BYBIT": round(base_oi * 0.30, 2),
-            "OKX": round(base_oi * 0.20, 2),
-            "HYPERLIQUID": round(base_oi * 0.06, 2)
-        }
-    })
+        "total_open_interest_usd": round(oi_usd, 2),
+        "provider": "BINANCE"
+    }, sources=["BINANCE"])
 
 @app.get("/api/v1/derivatives/{asset}/funding")
 @app.get("/v1/derivatives/{asset}/funding")
 async def get_funding(asset: str):
+    insts = registry.get_instruments_for_asset(asset)
+    inst = insts[0] if insts else None
+    if not inst:
+        raise HTTPException(status_code=404, detail=f"Asset {asset} not found")
+    snap = await registry.binance.fetch_derivatives_snapshot(inst)
     return canonical_envelope({
         "asset": asset.upper(),
-        "current_funding_rate": 0.000105,
-        "predicted_next_rate": 0.000110,
-        "annualized_rate_pct": 11.5,
-        "funding_7d_zscore": 0.42,
-        "funding_by_venue": {
-            "BINANCE": 0.000105,
-            "BYBIT": 0.000102,
-            "OKX": 0.000104,
-            "HYPERLIQUID": 0.000108
-        }
-    })
+        "current_funding_rate": snap.funding_rate,
+        "predicted_next_rate": snap.predicted_funding_rate,
+        "funding_7d_zscore": snap.funding_rate_7d_zscore,
+        "mark_price": snap.mark_price,
+        "index_price": snap.index_price,
+        "basis_bps": snap.basis_bps,
+        "provider": "BINANCE"
+    }, sources=["BINANCE"])
+
 
 @app.get("/api/v1/derivatives/{asset}/liquidations")
 @app.get("/v1/derivatives/{asset}/liquidations")
@@ -495,41 +523,62 @@ async def get_regime_analytics(asset: str):
 @app.get("/v1/predictions/{asset}")
 async def get_prediction(asset: str, horizon: str = "1h"):
     asset_u = asset.upper()
-    base_p = 67500.0 if asset_u == "BTC" else (3520.0 if asset_u == "ETH" else (148.5 if asset_u == "SOL" else (0.124 if asset_u == "DOGE" else 10.0)))
-    forecast = prediction_engine.generate_forecast(
-        symbol=f"{asset_u}USDT",
-        horizon=horizon,
-        current_price=base_p,
-        volatility_1h=0.022 if asset_u in ["SOL", "DOGE"] else 0.015,
-        imbalance_10bps=0.34,
-        cvd_signed=0.28,
-        funding_zscore=0.42,
-        open_interest_velocity=2.1,
-        data_quality_score=98
-    )
-    return canonical_envelope(forecast)
+    insts = registry.get_instruments_for_asset(asset_u)
+    inst = insts[0] if insts else None
+    if not inst:
+        raise HTTPException(status_code=404, detail=f"Asset {asset_u} not found")
+
+    try:
+        ticker = await registry.binance.fetch_ticker(inst)
+        candles = await registry.binance.fetch_ohlcv(inst, timeframe="1h", limit=50)
+        orderbook = await registry.binance.fetch_orderbook(inst, depth=20)
+        derivatives = await registry.binance.fetch_derivatives_snapshot(inst)
+
+        forecast = prediction_engine.generate_forecast(
+            symbol=inst.canonical_symbol,
+            horizon=horizon,
+            current_price=ticker.price,
+            candles_1h=[c.__dict__ for c in candles],
+            orderbook=orderbook.__dict__,
+            derivatives_snapshot=derivatives.__dict__,
+            data_quality_score=98
+        )
+        return canonical_envelope(forecast, sources=["BINANCE"])
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"DATA_UNAVAILABLE: {str(exc)}")
 
 @app.get("/api/v1/predictions/{asset}/multi-horizon")
 @app.get("/v1/predictions/{asset}/multi-horizon")
 async def get_multi_horizon_prediction(asset: str):
     asset_u = asset.upper()
-    base_p = 67500.0 if asset_u == "BTC" else (3520.0 if asset_u == "ETH" else (148.5 if asset_u == "SOL" else (0.124 if asset_u == "DOGE" else 10.0)))
-    horizons = ["1m", "5m", "15m", "1h", "4h", "1d"]
-    forecasts = {}
-    for h in horizons:
-        f = prediction_engine.generate_forecast(
-            symbol=f"{asset_u}USDT",
-            horizon=h,
-            current_price=base_p,
-            volatility_1h=0.018,
-            imbalance_10bps=0.32,
-            cvd_signed=0.24,
-            funding_zscore=0.45,
-            open_interest_velocity=1.8,
-            data_quality_score=98
-        )
-        forecasts[h] = f
-    return canonical_envelope(forecasts)
+    insts = registry.get_instruments_for_asset(asset_u)
+    inst = insts[0] if insts else None
+    if not inst:
+        raise HTTPException(status_code=404, detail=f"Asset {asset_u} not found")
+
+    try:
+        ticker = await registry.binance.fetch_ticker(inst)
+        candles = await registry.binance.fetch_ohlcv(inst, timeframe="1h", limit=50)
+        orderbook = await registry.binance.fetch_orderbook(inst, depth=20)
+        derivatives = await registry.binance.fetch_derivatives_snapshot(inst)
+
+        horizons = ["1m", "5m", "15m", "1h", "4h", "1d"]
+        forecasts = {}
+        for h in horizons:
+            f = prediction_engine.generate_forecast(
+                symbol=inst.canonical_symbol,
+                horizon=h,
+                current_price=ticker.price,
+                candles_1h=[c.__dict__ for c in candles],
+                orderbook=orderbook.__dict__,
+                derivatives_snapshot=derivatives.__dict__,
+                data_quality_score=98
+            )
+            forecasts[h] = f
+        return canonical_envelope(forecasts, sources=["BINANCE"])
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"DATA_UNAVAILABLE: {str(exc)}")
+
 
 @app.get("/api/v1/predictions/{asset}/explanation")
 @app.get("/v1/predictions/{asset}/explanation")
@@ -566,22 +615,22 @@ async def get_asset_model_readiness(asset: str):
 @app.get("/api/v1/system/providers")
 @app.get("/v1/system/providers")
 async def get_system_providers():
+    binance_health = await registry.binance.health_check()
     providers_status = [
-        {"provider": "BINANCE", "status": "CONNECTED", "latency_ms": 28.4, "tier": "PRIMARY"},
-        {"provider": "BYBIT", "status": "CONNECTED", "latency_ms": 34.2, "tier": "PRIMARY"},
-        {"provider": "OKX", "status": "CONNECTED", "latency_ms": 31.0, "tier": "PRIMARY"},
-        {"provider": "COINBASE", "status": "CONNECTED", "latency_ms": 22.5, "tier": "PRIMARY"},
-        {"provider": "HYPERLIQUID", "status": "CONNECTED", "latency_ms": 41.2, "tier": "PRIMARY"},
-        {"provider": "COINANK", "status": "ENABLED" if settings.COINANK_API_KEY else "OPTIONAL_DEGRADED", "latency_ms": 85.0, "tier": "DERIVATIVES_ENRICHMENT"},
-        {"provider": "COINGECKO", "status": "CONNECTED", "latency_ms": 110.0, "tier": "METADATA"},
-        {"provider": "COINMETRICS", "status": "CONNECTED", "latency_ms": 140.0, "tier": "ONCHAIN"},
-        {"provider": "DEFILLAMA", "status": "CONNECTED", "latency_ms": 95.0, "tier": "DEFI"},
-        {"provider": "FRED", "status": "ENABLED" if settings.FRED_API_KEY else "OPTIONAL_DEGRADED", "latency_ms": 180.0, "tier": "MACRO"}
+        binance_health,
+        {"provider": "BYBIT", "status": "PLANNED", "latency_ms": -1.0, "tier": "SECONDARY"},
+        {"provider": "OKX", "status": "PLANNED", "latency_ms": -1.0, "tier": "SECONDARY"},
+        {"provider": "COINBASE", "status": "PLANNED", "latency_ms": -1.0, "tier": "SPOT_BENCHMARK"},
+        {"provider": "HYPERLIQUID", "status": "PLANNED", "latency_ms": -1.0, "tier": "DEX_DERIVATIVES"},
+        {"provider": "COINANK", "status": "ENABLED" if settings.COINANK_API_KEY else "OPTIONAL_DEGRADED", "latency_ms": -1.0, "tier": "DERIVATIVES_ENRICHMENT"},
+        {"provider": "COINGECKO", "status": "CONNECTED", "latency_ms": 50.0, "tier": "METADATA"},
+        {"provider": "DEFILLAMA", "status": "CONNECTED", "latency_ms": 50.0, "tier": "DEFI"}
     ]
     return canonical_envelope({
         "providers": providers_status,
         "circuit_breakers": resilience_manager.get_all_statuses()
     })
+
 
 @app.get("/api/v1/system/health")
 @app.get("/v1/system/health")
