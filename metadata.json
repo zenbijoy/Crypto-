@@ -1,0 +1,6 @@
+{
+  "name": "CryptoScope AI",
+  "description": "Enterprise crypto futures intelligence, probabilistic AI forecasting, microstructure analytics, and paper trading terminal.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

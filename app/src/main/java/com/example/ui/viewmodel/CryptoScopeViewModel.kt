@@ -1,0 +1,311 @@
+package com.example.ui.viewmodel
+
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.core.data.CryptoScopeRepository
+import com.example.core.database.AlertRuleEntity
+import com.example.core.database.CryptoScopeDatabase
+import com.example.core.database.PaperPositionEntity
+import com.example.core.model.*
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+
+enum class MainTab {
+    HOME,
+    MARKETS,
+    ORDER_FLOW, // OrderFlow tab with +AI badge
+    NEWS,       // News & News Flash tab
+    USER_CENTER,// User Center / Profile tab
+    AI,         // Alias for compatibility
+    ALERTS,     // Alias for compatibility
+    MORE        // Alias for compatibility
+}
+
+enum class ScreenRoute {
+    SPLASH,
+    ONBOARDING,
+    SIGN_IN,
+    MAIN,
+    ASSET_DETAIL,
+    FEAR_AND_GREED_DETAIL,
+    LIQUIDATION_MAP,
+    LIQUIDATION_HEATMAP,
+    FUNDING_HEATMAP,
+    AGGREGATED_ORDERBOOK,
+    ETF_FLOW,
+    EDIT_PROFILE,
+    NEWS_DETAIL,
+    CREATE_ALERT,
+    ALERT_DETAIL,
+    PAPER_DASHBOARD,
+    PAPER_ORDER_TICKET,
+    PAPER_POSITION_DETAIL,
+    PREDICTION_HISTORY,
+    PREDICTION_INSPECTOR,
+    MODEL_PERFORMANCE,
+    SYSTEM_HEALTH,
+    NOTIFICATIONS,
+    GLOBAL_SEARCH,
+    PROFILE,
+    SETTINGS,
+    SECURITY,
+    ABOUT_RISK,
+    DATA_UNAVAILABLE
+}
+
+enum class AssetDetailTab {
+    DERIVATIVES,
+    SPOT,
+    OVERVIEW,
+    HOLDERS,
+    CHART,
+    BOOK,
+    LIQUIDATIONS,
+    LEVELS
+}
+
+data class UserProfile(
+    val nickname: String = "user-135927",
+    val uid: String = "135927",
+    val bio: String = "Crypto derivatives trader & quant enthusiast.",
+    val membership: String = "Normal",
+    val membershipExpiry: String = "--",
+    val apiKey: String = "--",
+    val points: Int = 380,
+    val inviteCode: String = "CS8899"
+)
+
+data class UiState(
+    val currentRoute: ScreenRoute = ScreenRoute.SPLASH,
+    val activeTab: MainTab = MainTab.HOME,
+    val assetDetailTab: AssetDetailTab = AssetDetailTab.SPOT,
+    val selectedAsset: AssetSymbol = AssetSymbol.BTC,
+    val selectedHorizon: Horizon = Horizon.H_1H,
+    val isAuthenticated: Boolean = true,
+    val userProfile: UserProfile = UserProfile(),
+    val userName: String = "user-135927",
+    val userEmail: String = "user@cryptoscope.ai",
+    val isLiveStreaming: Boolean = true,
+    val isDarkTheme: Boolean = false,
+    val colorPreferenceGreenPositive: Boolean = true,
+    val screenshotSharingEnabled: Boolean = true,
+    val circuitBreakerTriggered: Boolean = false,
+    val searchQuery: String = "",
+    val activeAlertDetailId: String = "alert-1",
+    val activePositionDetailId: String = "pos-btc-1",
+    val activePredictionAuditId: String = "hist-1",
+    val selectedWatchlistTab: String = "Default",
+    val selectedMarketFilterTab: String = "Derivatives",
+    val selectedAlertFilterTab: String = "Active",
+    val paperEquity: Double = 10842.60,
+    val paperTotalPnl: Double = 842.60,
+    val paperTotalPnlPct: Double = 8.43
+)
+
+class CryptoScopeViewModel(application: Application) : AndroidViewModel(application) {
+    private val database = CryptoScopeDatabase.getDatabase(application)
+    val repository = CryptoScopeRepository(database.dao())
+
+    private val _uiState = MutableStateFlow(UiState())
+    val uiState: StateFlow<UiState> = _uiState.asStateFlow()
+
+    // Backstack for natural back navigation
+    private val navigationBackstack = mutableListOf<ScreenRoute>()
+
+    init {
+        // Collect live price map to trigger smooth recompositions
+        viewModelScope.launch {
+            repository.livePrices.collect {
+                // updates automatically observed
+            }
+        }
+    }
+
+    fun navigateTo(route: ScreenRoute) {
+        if (_uiState.value.currentRoute != route) {
+            navigationBackstack.add(_uiState.value.currentRoute)
+            _uiState.update { it.copy(currentRoute = route) }
+        }
+    }
+
+    fun navigateBack(): Boolean {
+        if (navigationBackstack.isNotEmpty()) {
+            val previousRoute = navigationBackstack.removeAt(navigationBackstack.size - 1)
+            _uiState.update { it.copy(currentRoute = previousRoute) }
+            return true
+        }
+        return false
+    }
+
+    fun selectTab(tab: MainTab) {
+        _uiState.update { it.copy(activeTab = tab, currentRoute = ScreenRoute.MAIN) }
+    }
+
+    fun selectAsset(asset: AssetSymbol) {
+        repository.setSelectedAsset(asset)
+        _uiState.update { it.copy(selectedAsset = asset) }
+    }
+
+    fun selectHorizon(horizon: Horizon) {
+        repository.setSelectedHorizon(horizon)
+        _uiState.update { it.copy(selectedHorizon = horizon) }
+    }
+
+    fun setAssetDetailTab(tab: AssetDetailTab) {
+        _uiState.update { it.copy(assetDetailTab = tab) }
+    }
+
+    fun setMarketFilterTab(tab: String) {
+        _uiState.update { it.copy(selectedMarketFilterTab = tab) }
+    }
+
+    fun setAlertFilterTab(tab: String) {
+        _uiState.update { it.copy(selectedAlertFilterTab = tab) }
+    }
+
+    fun setSearchQuery(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
+    }
+
+    fun toggleDarkTheme() {
+        _uiState.update { it.copy(isDarkTheme = !it.isDarkTheme) }
+    }
+
+    fun updateProfile(nickname: String, bio: String) {
+        _uiState.update {
+            it.copy(
+                userName = nickname,
+                userProfile = it.userProfile.copy(nickname = nickname, bio = bio)
+            )
+        }
+    }
+
+    fun toggleScreenshotSharing() {
+        _uiState.update { it.copy(screenshotSharingEnabled = !it.screenshotSharingEnabled) }
+    }
+
+    fun toggleColorPreference() {
+        _uiState.update { it.copy(colorPreferenceGreenPositive = !it.colorPreferenceGreenPositive) }
+    }
+
+    fun openAlertDetail(alertId: String) {
+        _uiState.update { it.copy(activeAlertDetailId = alertId) }
+        navigateTo(ScreenRoute.ALERT_DETAIL)
+    }
+
+    fun openPositionDetail(positionId: String) {
+        _uiState.update { it.copy(activePositionDetailId = positionId) }
+        navigateTo(ScreenRoute.PAPER_POSITION_DETAIL)
+    }
+
+    fun openPredictionInspector(auditId: String) {
+        _uiState.update { it.copy(activePredictionAuditId = auditId) }
+        navigateTo(ScreenRoute.PREDICTION_INSPECTOR)
+    }
+
+    fun toggleCircuitBreaker() {
+        val next = !_uiState.value.circuitBreakerTriggered
+        _uiState.update { it.copy(circuitBreakerTriggered = next) }
+        repository.toggleCircuitBreaker(next)
+    }
+
+    fun toggleLiveConnection() {
+        val next = !_uiState.value.isLiveStreaming
+        _uiState.update { it.copy(isLiveStreaming = next) }
+        repository.toggleLiveConnection(next)
+    }
+
+    // Place a paper trade order
+    fun placePaperOrder(
+        symbol: String,
+        direction: String,
+        sizeUsd: Double,
+        stopLossPct: Double,
+        takeProfitPct: Double
+    ) {
+        viewModelScope.launch {
+            val price = repository.livePrices.value[symbol.replace("/", "")] ?: 109420.30
+            val newPosition = PaperPositionEntity(
+                id = "pos-${System.currentTimeMillis()}",
+                symbol = symbol,
+                direction = direction,
+                entryPrice = price,
+                markPrice = price,
+                sizeUsd = sizeUsd,
+                leverage = 1,
+                stopLoss = if (direction == "LONG") price * (1 - stopLossPct / 100.0) else price * (1 + stopLossPct / 100.0),
+                takeProfit = if (direction == "LONG") price * (1 + takeProfitPct / 100.0) else price * (1 - takeProfitPct / 100.0),
+                aiConfidence = 82,
+                aiRegime = "Bull trend",
+                aiModel = "btc-1h-v24.9",
+                aiRisk = "MEDIUM"
+            )
+            repository.addPaperPosition(newPosition)
+            navigateTo(ScreenRoute.PAPER_DASHBOARD)
+        }
+    }
+
+    // Create a new alert rule
+    fun createAlertRule(
+        asset: String,
+        horizon: String,
+        signal: String,
+        minConfidence: Int,
+        minAgreement: Int,
+        minQuality: Int,
+        cooldown: Int
+    ) {
+        viewModelScope.launch {
+            val newAlert = AlertRuleEntity(
+                id = "alert-${System.currentTimeMillis()}",
+                asset = asset,
+                horizon = horizon,
+                signal = signal,
+                minConfidence = minConfidence,
+                minAgreement = minAgreement,
+                minDataQuality = minQuality,
+                cooldownMinutes = cooldown,
+                requireExpectedEdge = true,
+                requireRiskEngineAllow = true,
+                status = "ACTIVE"
+            )
+            repository.addAlertRule(newAlert)
+            navigateTo(ScreenRoute.MAIN)
+            selectTab(MainTab.ALERTS)
+        }
+    }
+
+    fun pauseAlert(alertId: String) {
+        viewModelScope.launch {
+            repository.setAlertStatus(alertId, "PAUSED")
+        }
+    }
+
+    fun deleteAlert(alertId: String) {
+        viewModelScope.launch {
+            repository.removeAlertRule(alertId)
+            navigateBack()
+        }
+    }
+
+    fun closePaperPosition(posId: String) {
+        viewModelScope.launch {
+            repository.closePaperPosition(posId)
+            navigateBack()
+        }
+    }
+
+    fun resetPaperBalance() {
+        _uiState.update { it.copy(paperEquity = 10000.0, paperTotalPnl = 0.0, paperTotalPnlPct = 0.0) }
+    }
+
+    fun signInSuccess(email: String) {
+        _uiState.update { it.copy(isAuthenticated = true, userEmail = email, currentRoute = ScreenRoute.MAIN) }
+    }
+
+    fun signOut() {
+        _uiState.update { it.copy(isAuthenticated = false, currentRoute = ScreenRoute.SIGN_IN) }
+    }
+}
+

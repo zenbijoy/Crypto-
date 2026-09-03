@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+    container_name: cryptoscope-api
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql+asyncpg://cryptoscope:cryptoscope_secure_password@postgres:5432/cryptoscope_db
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET_KEY=cryptoscope_super_secure_jwt_secret_key_2026
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  telegram-bot:
+    build:
+      context: .
+      dockerfile: infra/docker/telegram.Dockerfile
+    container_name: cryptoscope-telegram
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-sample_token}
+      - API_URL=http://api:8000/v1
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    container_name: cryptoscope-timescaledb
+    environment:
+      - POSTGRES_USER=cryptoscope
+      - POSTGRES_PASSWORD=cryptoscope_secure_password
+      - POSTGRES_DB=cryptoscope_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: cryptoscope-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    container_name: cryptoscope-prometheus
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.0.0
+    container_name: cryptoscope-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  grafana_data:
