@@ -321,3 +321,49 @@ class TelegramUserModel(Base):
     chat_id = Column(String(50), unique=True, nullable=False)
     username = Column(String(50), nullable=True)
     created_at = Column(DateTime, default=utcnow)
+
+
+class UserProfileModel(Base):
+    __tablename__ = "user_profiles"
+    id = Column(Integer, primary_key=True, index=True)
+    supabase_user_id = Column(String(64), unique=True, nullable=False, index=True)
+    email = Column(String(100), nullable=False, index=True)
+    display_name = Column(String(100), nullable=True)
+    avatar_url = Column(String(255), nullable=True)
+    timezone = Column(String(50), default="UTC")
+    preferred_currency = Column(String(10), default="USD")
+    default_asset = Column(String(20), default="BTC")
+    default_horizon = Column(String(10), default="1h")
+    theme = Column(String(20), default="dark")
+    created_at = Column(DateTime, default=utcnow)
+
+
+class WatchlistModel(Base):
+    __tablename__ = "watchlists"
+    id = Column(Integer, primary_key=True, index=True)
+    supabase_user_id = Column(String(64), nullable=False, index=True)
+    symbol = Column(String(20), nullable=False, index=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+
+
+class DeviceTokenModel(Base):
+    __tablename__ = "device_tokens"
+    id = Column(Integer, primary_key=True, index=True)
+    supabase_user_id = Column(String(64), nullable=False, index=True)
+    device_token = Column(String(255), unique=True, nullable=False, index=True)
+    platform = Column(String(20), default="android")
+    enabled = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=utcnow)
+    last_seen = Column(DateTime, default=utcnow)
+
+
+class TelegramLinkModel(Base):
+    __tablename__ = "telegram_links"
+    id = Column(Integer, primary_key=True, index=True)
+    supabase_user_id = Column(String(64), nullable=False, index=True)
+    chat_id = Column(String(50), unique=True, nullable=False, index=True)
+    link_token = Column(String(50), nullable=True)
+    is_verified = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=utcnow)
+

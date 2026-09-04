@@ -9,7 +9,11 @@ enum class AssetSymbol(val code: String, val assetName: String, val basePrice: D
     SOL("SOLUSDT", "Solana", 208.14),
     BNB("BNBUSDT", "BNB", 812.50),
     XRP("XRPUSDT", "XRP", 3.02),
-    DOGE("DOGEUSDT", "Dogecoin", 0.237)
+    DOGE("DOGEUSDT", "Dogecoin", 0.237),
+    AVAX("AVAXUSDT", "Avalanche", 34.20),
+    SUI("SUIUSDT", "Sui", 3.42),
+    LINK("LINKUSDT", "Chainlink", 22.80),
+    ADA("ADAUSDT", "Cardano", 0.98)
 }
 
 @Keep

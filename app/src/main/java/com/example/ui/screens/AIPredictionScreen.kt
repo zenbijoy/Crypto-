@@ -86,7 +86,7 @@ fun AIPredictionScreen(viewModel: CryptoScopeViewModel) {
                 Spacer(modifier = Modifier.width(8.dp))
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = BrandBlueLight,
+                    color = if (isDark) BrandBlue.copy(alpha = 0.2f) else BrandBlueLight,
                     border = BorderStroke(1.dp, BrandBlue.copy(alpha = 0.3f))
                 ) {
                     Text(
@@ -112,6 +112,43 @@ fun AIPredictionScreen(viewModel: CryptoScopeViewModel) {
                         tint = BrandBlue,
                         modifier = Modifier.size(18.dp)
                     )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Multi-Asset Quick Switcher Row
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            items(AssetSymbol.values()) { asset ->
+                val isSelected = uiState.selectedAsset == asset
+                val assetPrice = livePrices[asset.code] ?: asset.basePrice
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = if (isSelected) BrandBlue else (if (isDark) DarkSurfaceRaised else LightSurfaceRaised),
+                    border = BorderStroke(1.dp, if (isSelected) BrandBlue else borderColor),
+                    modifier = Modifier.clickable { viewModel.selectAsset(asset) }
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                    ) {
+                        Text(
+                            text = asset.name,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isSelected) Color.White else textColor
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "$${if (assetPrice >= 1000) String.format("%,.0f", assetPrice) else String.format("%.2f", assetPrice)}",
+                            fontSize = 10.sp,
+                            color = if (isSelected) Color.White.copy(alpha = 0.85f) else textMutedColor
+                        )
+                    }
                 }
             }
         }

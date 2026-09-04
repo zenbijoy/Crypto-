@@ -106,7 +106,7 @@ fun UserCenterScreen(viewModel: CryptoScopeViewModel) {
                             modifier = Modifier
                                 .size(56.dp)
                                 .clip(CircleShape)
-                                .background(BrandBlueLight),
+                                .background(if (isDark) BrandBlue.copy(alpha = 0.2f) else BrandBlueLight),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
@@ -198,7 +198,7 @@ fun UserCenterScreen(viewModel: CryptoScopeViewModel) {
                         )
                         Surface(
                             shape = RoundedCornerShape(6.dp),
-                            color = BrandBlueLight
+                            color = if (isDark) BrandBlue.copy(alpha = 0.2f) else BrandBlueLight
                         ) {
                             Text(
                                 text = "${uiState.userProfile.points} PTS",

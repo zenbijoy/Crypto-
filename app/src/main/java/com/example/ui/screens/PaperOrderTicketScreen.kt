@@ -165,6 +165,38 @@ fun PaperOrderTicketScreen(viewModel: CryptoScopeViewModel) {
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
         )
 
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // Quick Size % Pills
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            listOf(25, 50, 75, 100).forEach { pct ->
+                val maxAvailableMargin = uiState.paperEquity * 0.95
+                val maxNotional = maxAvailableMargin * leverage
+                val targetQty = (maxNotional * (pct / 100.0)) / currentPrice
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isDark) DarkSurfaceRaised else LightSurfaceRaised,
+                    border = BorderStroke(1.dp, borderColor),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable {
+                            sizeBtc = if (currentPrice > 1000) String.format("%.3f", targetQty) else String.format("%.1f", targetQty)
+                        }
+                ) {
+                    Text(
+                        text = "$pct%",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = textMutedColor,
+                        modifier = Modifier.padding(vertical = 5.dp).wrapContentWidth(Alignment.CenterHorizontally)
+                    )
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.height(14.dp))
 
         // TP / SL
@@ -232,6 +264,12 @@ fun PaperOrderTicketScreen(viewModel: CryptoScopeViewModel) {
                     Text("$${String.format("%,.2f", marginRequired)}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = BrandBlue)
                 }
                 Spacer(modifier = Modifier.height(4.dp))
+                val estLiqPrice = if (side == "BUY") currentPrice * (1.0 - (1.0 / leverage) * 0.9) else currentPrice * (1.0 + (1.0 / leverage) * 0.9)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Est. Liq Price", fontSize = 11.sp, color = textMutedColor)
+                    Text("$${String.format("%,.1f", estLiqPrice)}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = SemanticNegative)
+                }
+                Spacer(modifier = Modifier.height(4.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Simulated Fee (0.04%)", fontSize = 11.sp, color = textMutedColor)
                     Text("$${String.format("%.2f", estFee)}", fontSize = 12.sp, color = textColor)
@@ -248,12 +286,18 @@ fun PaperOrderTicketScreen(viewModel: CryptoScopeViewModel) {
 
         Button(
             onClick = {
+                val slVal = stopLoss.toDoubleOrNull() ?: (if (side == "BUY") currentPrice * 0.985 else currentPrice * 1.015)
+                val tpVal = takeProfit.toDoubleOrNull() ?: (if (side == "BUY") currentPrice * 1.02 else currentPrice * 0.98)
+                val slPct = if (currentPrice > 0) Math.abs(currentPrice - slVal) / currentPrice * 100.0 else 1.5
+                val tpPct = if (currentPrice > 0) Math.abs(tpVal - currentPrice) / currentPrice * 100.0 else 2.0
+
                 viewModel.placePaperOrder(
                     symbol = "${uiState.selectedAsset.name}/USDT",
                     direction = if (side == "BUY") "LONG" else "SHORT",
                     sizeUsd = notionalUsd,
-                    stopLossPct = 1.5,
-                    takeProfitPct = 2.0
+                    stopLossPct = slPct,
+                    takeProfitPct = tpPct,
+                    leverage = leverage.toInt()
                 )
             },
             colors = ButtonDefaults.buttonColors(

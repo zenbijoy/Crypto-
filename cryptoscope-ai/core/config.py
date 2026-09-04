@@ -57,6 +57,24 @@ class Settings(BaseSettings):
     MLFLOW_TRACKING_URI: Optional[str] = None
     TELEGRAM_BOT_TOKEN: Optional[str] = None
 
+    # Supabase Auth Configuration
+    SUPABASE_URL: Optional[str] = None
+    SUPABASE_ANON_KEY: Optional[str] = None
+    SUPABASE_JWKS_URL: Optional[str] = None
+    SUPABASE_JWT_SECRET: Optional[str] = None
+
+    # Firebase FCM Configuration
+    FIREBASE_PROJECT_ID: Optional[str] = None
+    FIREBASE_CREDENTIALS_PATH: Optional[str] = None
+
+    # Object Storage (S3 / Cloudflare R2 / MinIO)
+    OBJECT_STORAGE_PROVIDER: str = "s3"  # "s3", "r2", "minio"
+    S3_ENDPOINT: Optional[str] = None
+    S3_BUCKET: str = "cryptoscope-data"
+    S3_ACCESS_KEY: Optional[str] = None
+    S3_SECRET_KEY: Optional[str] = None
+    S3_REGION: str = "us-east-1"
+
     class Config:
         case_sensitive = True
         env_file = ".env"

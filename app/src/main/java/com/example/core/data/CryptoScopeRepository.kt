@@ -41,7 +41,11 @@ class CryptoScopeRepository(
             "SOLUSDT" to 208.14,
             "BNBUSDT" to 812.50,
             "XRPUSDT" to 3.02,
-            "DOGEUSDT" to 0.237
+            "DOGEUSDT" to 0.237,
+            "AVAXUSDT" to 34.20,
+            "SUIUSDT" to 3.42,
+            "LINKUSDT" to 22.80,
+            "ADAUSDT" to 0.98
         )
     )
     val livePrices: StateFlow<Map<String, Double>> = _livePrices.asStateFlow()
@@ -54,7 +58,11 @@ class CryptoScopeRepository(
             "SOLUSDT" to 0.000079,
             "BNBUSDT" to 0.000050,
             "XRPUSDT" to 0.000062,
-            "DOGEUSDT" to 0.000040
+            "DOGEUSDT" to 0.000040,
+            "AVAXUSDT" to 0.000065,
+            "SUIUSDT" to 0.000110,
+            "LINKUSDT" to 0.000072,
+            "ADAUSDT" to 0.000045
         )
     )
     val liveFundingRates: StateFlow<Map<String, Double>> = _liveFundingRates.asStateFlow()
@@ -66,7 +74,11 @@ class CryptoScopeRepository(
             "SOLUSDT" to 4.9e9,
             "BNBUSDT" to 1.2e9,
             "XRPUSDT" to 1.8e9,
-            "DOGEUSDT" to 8.5e8
+            "DOGEUSDT" to 8.5e8,
+            "AVAXUSDT" to 6.2e8,
+            "SUIUSDT" to 9.4e8,
+            "LINKUSDT" to 4.8e8,
+            "ADAUSDT" to 5.5e8
         )
     )
     val liveOpenInterests: StateFlow<Map<String, Double>> = _liveOpenInterests.asStateFlow()
@@ -130,7 +142,10 @@ class CryptoScopeRepository(
             val tickerRes = remoteDataSource.fetch24HrTickers()
             if (tickerRes.isSuccess) {
                 val list = tickerRes.getOrNull().orEmpty()
-                val targetSymbols = setOf("BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT")
+                val targetSymbols = setOf(
+                    "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT",
+                    "AVAXUSDT", "SUIUSDT", "LINKUSDT", "ADAUSDT"
+                )
                 val matched = list.filter { it.symbol in targetSymbols }
                 if (matched.isNotEmpty()) {
                     val updatedPrices = _livePrices.value.toMutableMap()
@@ -262,6 +277,10 @@ class CryptoScopeRepository(
         val bnb = prices["BNBUSDT"] ?: 812.50
         val xrp = prices["XRPUSDT"] ?: 3.02
         val doge = prices["DOGEUSDT"] ?: 0.237
+        val avax = prices["AVAXUSDT"] ?: 34.20
+        val sui = prices["SUIUSDT"] ?: 3.42
+        val link = prices["LINKUSDT"] ?: 22.80
+        val ada = prices["ADAUSDT"] ?: 0.98
 
         return listOf(
             MarketItem("BTCUSDT", "BTC", "BTC/USDT", btc, btc - 3.3, 2.43, 28.4e9, fundings["BTCUSDT"] ?: 0.000091, ois["BTCUSDT"] ?: 21.4e9, listOf(107000.0, 107400.0, 106900.0, 108100.0, 108900.0, 109200.0, btc)),
@@ -269,7 +288,11 @@ class CryptoScopeRepository(
             MarketItem("SOLUSDT", "SOL", "SOL/USDT", sol, sol - 0.04, 4.08, 6.8e9, fundings["SOLUSDT"] ?: 0.000079, ois["SOLUSDT"] ?: 4.9e9, listOf(198.0, 199.5, 201.0, 200.2, 204.0, 206.8, sol)),
             MarketItem("BNBUSDT", "BNB", "BNB/USDT", bnb, bnb - 0.2, -0.44, 1.9e9, fundings["BNBUSDT"] ?: 0.000050, ois["BNBUSDT"] ?: 1.2e9, listOf(820.0, 818.0, 819.0, 815.0, 814.0, bnb)),
             MarketItem("XRPUSDT", "XRP", "XRP/USDT", xrp, xrp - 0.001, 1.12, 3.1e9, fundings["XRPUSDT"] ?: 0.000062, ois["XRPUSDT"] ?: 1.8e9, listOf(2.95, 2.97, 2.99, 3.01, xrp)),
-            MarketItem("DOGEUSDT", "DOGE", "DOGE/USDT", doge, doge - 0.0001, -1.08, 1.5e9, fundings["DOGEUSDT"] ?: 0.000040, ois["DOGEUSDT"] ?: 8.5e8, listOf(0.242, 0.240, 0.239, 0.238, doge))
+            MarketItem("DOGEUSDT", "DOGE", "DOGE/USDT", doge, doge - 0.0001, -1.08, 1.5e9, fundings["DOGEUSDT"] ?: 0.000040, ois["DOGEUSDT"] ?: 8.5e8, listOf(0.242, 0.240, 0.239, 0.238, doge)),
+            MarketItem("AVAXUSDT", "AVAX", "AVAX/USDT", avax, avax - 0.01, 5.12, 8.4e8, fundings["AVAXUSDT"] ?: 0.000065, ois["AVAXUSDT"] ?: 6.2e8, listOf(32.4, 32.8, 33.1, 33.6, 33.9, avax)),
+            MarketItem("SUIUSDT", "SUI", "SUI/USDT", sui, sui - 0.002, 6.84, 1.2e9, fundings["SUIUSDT"] ?: 0.000110, ois["SUIUSDT"] ?: 9.4e8, listOf(3.15, 3.18, 3.22, 3.29, 3.38, sui)),
+            MarketItem("LINKUSDT", "LINK", "LINK/USDT", link, link - 0.01, 3.21, 6.4e8, fundings["LINKUSDT"] ?: 0.000072, ois["LINKUSDT"] ?: 4.8e8, listOf(21.8, 22.0, 22.1, 22.4, 22.6, link)),
+            MarketItem("ADAUSDT", "ADA", "ADA/USDT", ada, ada - 0.001, 1.88, 7.5e8, fundings["ADAUSDT"] ?: 0.000045, ois["ADAUSDT"] ?: 5.5e8, listOf(0.95, 0.96, 0.96, 0.97, 0.97, ada))
         )
     }
 

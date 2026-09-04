@@ -33,13 +33,18 @@ fun AlertsScreen(viewModel: CryptoScopeViewModel) {
     val textColor = if (isDark) DarkTextPrimary else LightTextPrimary
     val textMutedColor = if (isDark) DarkTextMuted else LightTextMuted
 
-    val fallbackAlerts = listOf(
-        Triple("alert-1", "BTC LONG • 1H", "Conf ≥ 80 • Agreement ≥ 75 • Quality ≥ 95 • Last checked 12s ago" to "ACTIVE"),
-        Triple("alert-2", "SOL Breakout • 15M", "Conf ≥ 75 • Data quality ≥ 90 • Last checked 14s ago" to "ACTIVE"),
-        Triple("alert-3", "ETH OI Spike • 1H", "OI > +5% 15m • Cooldown 60m • Last checked 14s ago" to "PAUSED")
-    )
+    val alertEntities by viewModel.repository.getAlertRules().collectAsState(initial = emptyList())
 
     val filterTabs = listOf("Active", "Triggered", "Paused")
+
+    val displayedAlerts = remember(alertEntities, uiState.selectedAlertFilterTab) {
+        when (uiState.selectedAlertFilterTab) {
+            "Active" -> alertEntities.filter { it.status == "ACTIVE" }
+            "Paused" -> alertEntities.filter { it.status == "PAUSED" }
+            "Triggered" -> alertEntities.take(1) // Show recent triggers
+            else -> alertEntities
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -106,16 +111,19 @@ fun AlertsScreen(viewModel: CryptoScopeViewModel) {
             verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.weight(1f)
         ) {
-            items(fallbackAlerts) { (id, title, details) ->
-                val (desc, status) = details
+            items(displayedAlerts) { alert ->
+                val title = "${alert.asset} ${alert.signal} • ${alert.horizon}"
+                val desc = "Conf ≥ ${alert.minConfidence}% • Agreement ≥ ${alert.minAgreement}% • Quality ≥ ${alert.minDataQuality}% • Cooldown ${alert.cooldownMinutes}m"
+                val isActive = alert.status == "ACTIVE"
+
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = cardColor,
                     border = BorderStroke(1.dp, borderColor),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { viewModel.openAlertDetail(id) }
-                        .testTag("alert_item_$id")
+                        .clickable { viewModel.openAlertDetail(alert.id) }
+                        .testTag("alert_item_${alert.id}")
                 ) {
                     Row(
                         modifier = Modifier.padding(14.dp),
@@ -130,15 +138,44 @@ fun AlertsScreen(viewModel: CryptoScopeViewModel) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Surface(
                             shape = RoundedCornerShape(4.dp),
-                            color = if (status == "ACTIVE") SemanticPositiveLight else (if (isDark) DarkSurfaceRaised else LightSurfaceRaised)
+                            color = if (isActive) (if (isDark) SemanticPositive.copy(alpha = 0.2f) else SemanticPositiveLight) else (if (isDark) DarkSurfaceRaised else LightSurfaceRaised),
+                            modifier = Modifier.clickable { viewModel.toggleAlertStatus(alert.id, alert.status) }
                         ) {
                             Text(
-                                text = status,
+                                text = alert.status,
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (status == "ACTIVE") SemanticPositive else textMutedColor,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                color = if (isActive) SemanticPositive else textMutedColor,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
+                        }
+                    }
+                }
+            }
+
+            if (displayedAlerts.isEmpty()) {
+                item {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = cardColor,
+                        border = BorderStroke(1.dp, borderColor),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("No ${uiState.selectedAlertFilterTab.lowercase()} alerts", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = textColor)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text("Create a new confidence-gated alert rule to receive automated notifications.", fontSize = 11.sp, color = textMutedColor, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Button(
+                                onClick = { viewModel.navigateTo(ScreenRoute.CREATE_ALERT) },
+                                colors = ButtonDefaults.buttonColors(containerColor = BrandBlue, contentColor = Color.White),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("Create Alert", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }

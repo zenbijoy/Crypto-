@@ -53,8 +53,13 @@ fun MarketsScreen(viewModel: CryptoScopeViewModel) {
     var searchQuery by remember { mutableStateOf("") }
     var sortByChange by remember { mutableStateOf(false) }
 
-    val filteredMarkets = remember(markets, searchQuery, subTab, sortByChange) {
-        markets.filter {
+    val filteredMarkets = remember(markets, searchQuery, subTab, sortByChange, uiState.watchlist) {
+        val base = when (subTab) {
+            "Favorites" -> markets.filter { uiState.watchlist.contains(it.asset) }
+            "Category" -> markets.filter { it.asset in setOf("BTC", "ETH", "SOL", "BNB") }
+            else -> markets
+        }
+        base.filter {
             if (searchQuery.isBlank()) true
             else it.asset.contains(searchQuery, ignoreCase = true) || it.pair.contains(searchQuery, ignoreCase = true)
         }.let { list ->
@@ -216,24 +221,37 @@ fun MarketsScreen(viewModel: CryptoScopeViewModel) {
                         ) {
                             // Coin info
                             Row(
-                                modifier = Modifier.weight(1.3f),
+                                modifier = Modifier.weight(1.4f),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
+                                val isFav = uiState.watchlist.contains(market.asset)
+                                IconButton(
+                                    onClick = { viewModel.toggleWatchlist(market.asset) },
+                                    modifier = Modifier.size(24.dp).testTag("fav_btn_${market.asset}")
+                                ) {
+                                    Icon(
+                                        imageVector = if (isFav) Icons.Default.Star else Icons.Default.StarBorder,
+                                        contentDescription = "Favorite",
+                                        tint = if (isFav) BrandGold else textMutedColor.copy(alpha = 0.5f),
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(4.dp))
                                 Box(
                                     modifier = Modifier
-                                        .size(30.dp)
+                                        .size(28.dp)
                                         .clip(CircleShape)
-                                        .background(if (market.asset == "BTC") BrandGold.copy(alpha = 0.15f) else BrandBlueLight),
+                                        .background(if (market.asset == "BTC") BrandGold.copy(alpha = 0.15f) else BrandBlue.copy(alpha = 0.15f)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
                                         text = market.asset.take(1),
-                                        fontSize = 13.sp,
+                                        fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = if (market.asset == "BTC") BrandGold else BrandBlue
                                     )
                                 }
-                                Spacer(modifier = Modifier.width(8.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
                                 Column {
                                     Text(
                                         text = market.asset,
@@ -242,7 +260,7 @@ fun MarketsScreen(viewModel: CryptoScopeViewModel) {
                                         color = textColor
                                     )
                                     Text(
-                                        text = "$${market.volume24h}",
+                                        text = "Vol $${String.format("%.1f", market.volume24h / 1e9)}B",
                                         fontSize = 10.sp,
                                         color = textMutedColor
                                     )
@@ -285,8 +303,21 @@ fun MarketsScreen(viewModel: CryptoScopeViewModel) {
                                     fontWeight = FontWeight.Bold,
                                     color = textColor
                                 )
+                                val mcapDisplay = when (market.asset) {
+                                    "BTC" -> "$2.14T"
+                                    "ETH" -> "$526B"
+                                    "SOL" -> "$98B"
+                                    "BNB" -> "$118B"
+                                    "XRP" -> "$172B"
+                                    "DOGE" -> "$34B"
+                                    "AVAX" -> "$14B"
+                                    "SUI" -> "$9.8B"
+                                    "LINK" -> "$14.2B"
+                                    "ADA" -> "$35B"
+                                    else -> "$${String.format("%.1f", (market.volume24h * 15) / 1e9)}B"
+                                }
                                 Text(
-                                    text = "MCap: $1.55T",
+                                    text = "MCap: $mcapDisplay",
                                     fontSize = 10.sp,
                                     color = textMutedColor
                                 )
@@ -311,6 +342,44 @@ fun MarketsScreen(viewModel: CryptoScopeViewModel) {
                         }
 
                         HorizontalDivider(color = borderColor, thickness = 0.5.dp)
+                    }
+                }
+            }
+
+            if (filteredMarkets.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 60.dp, start = 32.dp, end = 32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = if (subTab == "Favorites") Icons.Default.StarBorder else Icons.Default.Search,
+                                contentDescription = null,
+                                tint = textMutedColor,
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Text(
+                                text = if (subTab == "Favorites") "No favorites saved yet" else "No matching crypto pairs",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = textColor
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = if (subTab == "Favorites") 
+                                    "Tap the star icon next to any coin in the Markets tab to monitor it in your favorites."
+                                else 
+                                    "Try adjusting your search query or filter criteria.",
+                                fontSize = 12.sp,
+                                color = textMutedColor,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                lineHeight = 16.sp
+                            )
+                        }
                     }
                 }
             }

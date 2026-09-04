@@ -99,6 +99,7 @@ data class UiState(
     val selectedWatchlistTab: String = "Default",
     val selectedMarketFilterTab: String = "Derivatives",
     val selectedAlertFilterTab: String = "Active",
+    val watchlist: Set<String> = setOf("BTC", "ETH", "SOL", "AVAX"),
     val paperEquity: Double = 10842.60,
     val paperTotalPnl: Double = 842.60,
     val paperTotalPnlPct: Double = 8.43
@@ -119,6 +120,97 @@ class CryptoScopeViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch {
             repository.livePrices.collect {
                 // updates automatically observed
+            }
+        }
+
+        // Collect and seed Room Watchlist
+        viewModelScope.launch {
+            repository.getWatchlistSymbols().collect { entities ->
+                if (entities.isEmpty()) {
+                    listOf("BTC", "ETH", "SOL", "AVAX").forEach { sym ->
+                        repository.addWatchlistSymbol(sym)
+                    }
+                } else {
+                    _uiState.update { it.copy(watchlist = entities.map { e -> e.symbol }.toSet()) }
+                }
+            }
+        }
+
+        // Seed default alerts if Room is empty
+        viewModelScope.launch {
+            repository.getAlertRules().collect { rules ->
+                if (rules.isEmpty()) {
+                    repository.addAlertRule(
+                        AlertRuleEntity(
+                            id = "alert-1",
+                            asset = "BTC",
+                            horizon = "1H",
+                            signal = "STRONG LONG",
+                            minConfidence = 80,
+                            minAgreement = 75,
+                            minDataQuality = 95,
+                            cooldownMinutes = 15,
+                            requireExpectedEdge = true,
+                            requireRiskEngineAllow = true,
+                            status = "ACTIVE"
+                        )
+                    )
+                    repository.addAlertRule(
+                        AlertRuleEntity(
+                            id = "alert-2",
+                            asset = "SOL",
+                            horizon = "15M",
+                            signal = "BREAKOUT",
+                            minConfidence = 75,
+                            minAgreement = 70,
+                            minDataQuality = 90,
+                            cooldownMinutes = 30,
+                            requireExpectedEdge = true,
+                            requireRiskEngineAllow = true,
+                            status = "ACTIVE"
+                        )
+                    )
+                    repository.addAlertRule(
+                        AlertRuleEntity(
+                            id = "alert-3",
+                            asset = "ETH",
+                            horizon = "1H",
+                            signal = "OI SPIKE",
+                            minConfidence = 70,
+                            minAgreement = 65,
+                            minDataQuality = 88,
+                            cooldownMinutes = 60,
+                            requireExpectedEdge = true,
+                            requireRiskEngineAllow = true,
+                            status = "PAUSED"
+                        )
+                    )
+                }
+            }
+        }
+
+        // Seed initial paper trading position if Room is empty
+        viewModelScope.launch {
+            repository.getPaperPositions().collect { positions ->
+                if (positions.isEmpty()) {
+                    repository.addPaperPosition(
+                        PaperPositionEntity(
+                            id = "pos-initial-btc",
+                            symbol = "BTC/USDT",
+                            direction = "LONG",
+                            entryPrice = 107600.0,
+                            markPrice = 109420.30,
+                            sizeUsd = 5000.0,
+                            leverage = 10,
+                            stopLoss = 105448.0,
+                            takeProfit = 113500.0,
+                            aiConfidence = 84,
+                            aiRegime = "Bull trend momentum",
+                            aiModel = "btc-1h-v26.4",
+                            aiRisk = "LOW"
+                        )
+                    )
+                }
             }
         }
     }
@@ -217,16 +309,40 @@ class CryptoScopeViewModel(application: Application) : AndroidViewModel(applicat
         repository.toggleLiveConnection(next)
     }
 
+    // Toggle Watchlist / Favorites
+    fun toggleWatchlist(symbol: String) {
+        viewModelScope.launch {
+            val current = _uiState.value.watchlist
+            val cleanSymbol = symbol.replace("USDT", "").replace("/", "")
+            if (current.contains(cleanSymbol)) {
+                repository.removeWatchlistSymbol(cleanSymbol)
+                _uiState.update { it.copy(watchlist = current - cleanSymbol) }
+            } else {
+                repository.addWatchlistSymbol(cleanSymbol)
+                _uiState.update { it.copy(watchlist = current + cleanSymbol) }
+            }
+        }
+    }
+
+    fun isFavorite(symbol: String): Boolean {
+        val clean = symbol.replace("USDT", "").replace("/", "")
+        return _uiState.value.watchlist.contains(clean)
+    }
+
     // Place a paper trade order
     fun placePaperOrder(
         symbol: String,
         direction: String,
         sizeUsd: Double,
         stopLossPct: Double,
-        takeProfitPct: Double
+        takeProfitPct: Double,
+        leverage: Int = 10
     ) {
         viewModelScope.launch {
-            val price = repository.livePrices.value[symbol.replace("/", "")] ?: 109420.30
+            val cleanSymbol = symbol.replace("/", "")
+            val price = repository.livePrices.value[cleanSymbol] 
+                ?: repository.livePrices.value["${cleanSymbol}USDT"] 
+                ?: 109420.30
             val newPosition = PaperPositionEntity(
                 id = "pos-${System.currentTimeMillis()}",
                 symbol = symbol,
@@ -234,16 +350,23 @@ class CryptoScopeViewModel(application: Application) : AndroidViewModel(applicat
                 entryPrice = price,
                 markPrice = price,
                 sizeUsd = sizeUsd,
-                leverage = 1,
-                stopLoss = if (direction == "LONG") price * (1 - stopLossPct / 100.0) else price * (1 + stopLossPct / 100.0),
-                takeProfit = if (direction == "LONG") price * (1 + takeProfitPct / 100.0) else price * (1 - takeProfitPct / 100.0),
-                aiConfidence = 82,
-                aiRegime = "Bull trend",
-                aiModel = "btc-1h-v24.9",
-                aiRisk = "MEDIUM"
+                leverage = leverage,
+                stopLoss = if (direction == "LONG") price * (1.0 - stopLossPct / 100.0) else price * (1.0 + stopLossPct / 100.0),
+                takeProfit = if (direction == "LONG") price * (1.0 + takeProfitPct / 100.0) else price * (1.0 - takeProfitPct / 100.0),
+                aiConfidence = 84,
+                aiRegime = "Momentum breakout",
+                aiModel = "${symbol.take(3).lowercase()}-1h-v26",
+                aiRisk = if (leverage > 10) "HIGH" else "MEDIUM"
             )
             repository.addPaperPosition(newPosition)
             navigateTo(ScreenRoute.PAPER_DASHBOARD)
+        }
+    }
+
+    fun toggleAlertStatus(alertId: String, currentStatus: String) {
+        viewModelScope.launch {
+            val next = if (currentStatus == "ACTIVE") "PAUSED" else "ACTIVE"
+            repository.setAlertStatus(alertId, next)
         }
     }
 

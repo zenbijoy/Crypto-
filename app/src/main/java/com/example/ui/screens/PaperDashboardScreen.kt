@@ -33,6 +33,7 @@ fun PaperDashboardScreen(viewModel: CryptoScopeViewModel) {
     val textColor = if (isDark) DarkTextPrimary else LightTextPrimary
     val textMutedColor = if (isDark) DarkTextMuted else LightTextMuted
 
+    val livePrices by viewModel.repository.livePrices.collectAsState()
     val positions by viewModel.repository.getPaperPositions().collectAsState(initial = emptyList())
 
     val filterTabs = listOf("Positions (${positions.size})", "Orders (0)", "History (14)")
@@ -143,8 +144,10 @@ fun PaperDashboardScreen(viewModel: CryptoScopeViewModel) {
         ) {
             items(positions, key = { it.id }) { pos ->
                 val isLong = pos.direction == "LONG"
-                val pnlUsd = if (pos.entryPrice > 0) (pos.markPrice - pos.entryPrice) * (pos.sizeUsd / pos.entryPrice) * (if (isLong) 1 else -1) else 0.0
-                val pnlPct = if (pos.entryPrice > 0) ((pos.markPrice - pos.entryPrice) / pos.entryPrice) * 100.0 * (if (isLong) 1 else -1) else 0.0
+                val clean = pos.symbol.replace("/", "")
+                val currentMark = livePrices[clean] ?: livePrices["${clean}USDT"] ?: pos.markPrice
+                val pnlUsd = if (pos.entryPrice > 0) (currentMark - pos.entryPrice) * (pos.sizeUsd / pos.entryPrice) * (if (isLong) 1 else -1) else 0.0
+                val pnlPct = if (pos.entryPrice > 0) ((currentMark - pos.entryPrice) / pos.entryPrice) * 100.0 * (if (isLong) 1 else -1) else 0.0
                 val isPos = pnlUsd >= 0
                 val pnlColor = if (isPos) SemanticPositive else SemanticNegative
 
@@ -168,7 +171,7 @@ fun PaperDashboardScreen(viewModel: CryptoScopeViewModel) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Surface(
                                     shape = RoundedCornerShape(4.dp),
-                                    color = if (isLong) SemanticPositiveLight else SemanticNegativeLight
+                                    color = if (isLong) (if (isDark) SemanticPositive.copy(alpha = 0.2f) else SemanticPositiveLight) else (if (isDark) SemanticNegative.copy(alpha = 0.2f) else SemanticNegativeLight)
                                 ) {
                                     Text(
                                         text = "${pos.direction} ${pos.leverage}X",
@@ -211,11 +214,49 @@ fun PaperDashboardScreen(viewModel: CryptoScopeViewModel) {
                             }
                             Column {
                                 Text("Mark", fontSize = 10.sp, color = textMutedColor)
-                                Text("$${String.format("%,.1f", pos.markPrice)}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = textColor)
+                                Text("$${String.format("%,.1f", currentMark)}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = textColor)
                             }
                             Column(horizontalAlignment = Alignment.End) {
                                 Text("Stop Loss", fontSize = 10.sp, color = textMutedColor)
                                 Text("$${String.format("%,.1f", pos.stopLoss)}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = SemanticNegative)
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (positions.isEmpty()) {
+                item {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = cardColor,
+                        border = BorderStroke(1.dp, borderColor),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .background(BrandBlue.copy(alpha = 0.15f), shape = RoundedCornerShape(12.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, tint = BrandBlue, modifier = Modifier.size(28.dp))
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text("No open simulation positions", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = textColor)
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text("Open a risk-free paper trade directly from AI Prediction or the order ticket to simulate institutional trade execution.", fontSize = 12.sp, color = textMutedColor, textAlign = androidx.compose.ui.text.style.TextAlign.Center, lineHeight = 16.sp)
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(
+                                onClick = { viewModel.navigateTo(ScreenRoute.PAPER_ORDER_TICKET) },
+                                colors = ButtonDefaults.buttonColors(containerColor = BrandBlue, contentColor = Color.White),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.height(40.dp)
+                            ) {
+                                Text("OPEN SIMULATION ORDER", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
