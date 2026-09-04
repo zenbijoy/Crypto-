@@ -1,0 +1,3 @@
+"""
+CryptoScope AI - API Package
+"""

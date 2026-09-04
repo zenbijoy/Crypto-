@@ -2,7 +2,9 @@ package com.example.core.data
 
 import com.example.core.database.*
 import com.example.core.model.*
+import com.example.core.network.datasource.CryptoScopeBackendRemoteDataSource
 import com.example.core.network.datasource.FuturesRemoteDataSource
+import com.example.core.network.dto.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 
@@ -19,7 +21,8 @@ private data class ForecastRawOutputs(
 
 class CryptoScopeRepository(
     private val dao: CryptoScopeDao,
-    private val remoteDataSource: FuturesRemoteDataSource = FuturesRemoteDataSource()
+    private val remoteDataSource: FuturesRemoteDataSource = FuturesRemoteDataSource(),
+    private val backendRemoteDataSource: CryptoScopeBackendRemoteDataSource = CryptoScopeBackendRemoteDataSource()
 ) {
     private val repositoryScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
@@ -75,6 +78,19 @@ class CryptoScopeRepository(
     // Live Candlestick histories from remote exchange
     private val _liveKlines = MutableStateFlow<Map<String, List<CandleStick>>>(emptyMap())
     val liveKlines: StateFlow<Map<String, List<CandleStick>>> = _liveKlines.asStateFlow()
+
+    // CryptoScope AI Gateway Live Feeds
+    private val _marketOverview = MutableStateFlow<MarketOverviewResponseDto?>(null)
+    val marketOverview: StateFlow<MarketOverviewResponseDto?> = _marketOverview.asStateFlow()
+
+    private val _contractRadarAlerts = MutableStateFlow<List<ContractRadarAlertDto>>(emptyList())
+    val contractRadarAlerts: StateFlow<List<ContractRadarAlertDto>> = _contractRadarAlerts.asStateFlow()
+
+    private val _backendProviders = MutableStateFlow<List<ProviderStatusDto>>(emptyList())
+    val backendProviders: StateFlow<List<ProviderStatusDto>> = _backendProviders.asStateFlow()
+
+    private val _backendNews = MutableStateFlow<List<NewsItemDto>>(emptyList())
+    val backendNews: StateFlow<List<NewsItemDto>> = _backendNews.asStateFlow()
 
     // WebSocket / Connection status
     private val _isLiveConnected = MutableStateFlow(true)
@@ -169,6 +185,45 @@ class CryptoScopeRepository(
                     val km = _liveKlines.value.toMutableMap()
                     km[curSymbol] = klines
                     _liveKlines.value = km
+                }
+            }
+
+            // Sync with CryptoScope AI FastAPI Quant Gateway
+            val overviewRes = backendRemoteDataSource.fetchMarketOverview()
+            if (overviewRes.isSuccess) {
+                val overview = overviewRes.getOrNull()
+                if (overview != null) {
+                    _marketOverview.value = overview
+                    val fSummary = overview.futuresOverview
+                    if (fSummary != null && fSummary.totalOpenInterestUsd > 0) {
+                        val oiMap = _liveOpenInterests.value.toMutableMap()
+                        oiMap["BTCUSDT"] = fSummary.totalOpenInterestUsd
+                        _liveOpenInterests.value = oiMap
+                    }
+                }
+            }
+
+            val radarRes = backendRemoteDataSource.fetchContractRadar()
+            if (radarRes.isSuccess) {
+                val alerts = radarRes.getOrNull().orEmpty()
+                if (alerts.isNotEmpty()) {
+                    _contractRadarAlerts.value = alerts
+                }
+            }
+
+            val providersRes = backendRemoteDataSource.fetchProvidersStatus()
+            if (providersRes.isSuccess) {
+                val providers = providersRes.getOrNull().orEmpty()
+                if (providers.isNotEmpty()) {
+                    _backendProviders.value = providers
+                }
+            }
+
+            val newsRes = backendRemoteDataSource.fetchNews()
+            if (newsRes.isSuccess) {
+                val news = newsRes.getOrNull().orEmpty()
+                if (news.isNotEmpty()) {
+                    _backendNews.value = news
                 }
             }
         } catch (_: Exception) {
@@ -538,19 +593,45 @@ class CryptoScopeRepository(
 
     // Sentiment & News
     fun getSentiment(asset: AssetSymbol): SentimentData {
-        return SentimentData(
-            symbol = asset.code,
-            sentimentState = "BULLISH",
-            fearGreedScore = 74,
-            fearGreedLabel = "Greed",
-            eventRisk = "LOW",
-            history = listOf(65.0, 68.0, 71.0, 70.0, 74.0),
-            newsList = listOf(
+        val overviewFg = _marketOverview.value?.fearAndGreed
+        val fgScore = overviewFg?.value ?: 74
+        val fgLabel = overviewFg?.classification ?: "Greed"
+
+        val liveNews = _backendNews.value
+        val newsItems = if (liveNews.isNotEmpty()) {
+            liveNews.take(4).mapIndexed { idx, item ->
+                val badgeColor = when (item.sentiment.uppercase()) {
+                    "POSITIVE", "BULLISH" -> "GREEN"
+                    "NEGATIVE", "BEARISH" -> "RED"
+                    else -> "GOLD"
+                }
+                NewsItem(
+                    id = item.id.ifEmpty { "n-$idx" },
+                    title = item.title,
+                    source = item.source,
+                    timeAgo = "Just now",
+                    category = item.category,
+                    sentimentTag = badgeColor,
+                    relevance = item.sentimentScore
+                )
+            }
+        } else {
+            listOf(
                 NewsItem("n1", "ETF flows strengthen with institutional net inflows +$420M", "Bloomberg Crypto", "2m", "ETF", "GREEN", 0.95),
                 NewsItem("n2", "Exchange scheduled maintenance notice completed with 0 downtime", "Binance Notice", "23m", "Ops", "GOLD", 0.72),
                 NewsItem("n3", "Macro bond yields ease after cooling inflation indicators", "Reuters", "45m", "Macro", "GREEN", 0.88),
                 NewsItem("n4", "Regulatory hearing scheduled for next quarter draft framework", "CoinDesk", "2h", "Regulation", "RED", 0.65)
             )
+        }
+
+        return SentimentData(
+            symbol = asset.code,
+            sentimentState = if (fgScore >= 60) "BULLISH" else if (fgScore <= 40) "BEARISH" else "NEUTRAL",
+            fearGreedScore = fgScore,
+            fearGreedLabel = fgLabel,
+            eventRisk = "LOW",
+            history = listOf(65.0, 68.0, 71.0, 70.0, fgScore.toDouble()),
+            newsList = newsItems
         )
     }
 
@@ -647,6 +728,22 @@ class CryptoScopeRepository(
 
     // Provider Layer (Decoupled Adapters: Binance, Bybit, OKX, Hyperliquid, Coinbase, Kraken, CoinAnk, CoinMetrics, DefiLlama, FRED, GDELT)
     fun getProviderHealthList(): List<ProviderHealthStatus> {
+        val liveBackend = _backendProviders.value
+        if (liveBackend.isNotEmpty()) {
+            return liveBackend.map { p ->
+                val isHealthy = p.status.equals("HEALTHY", ignoreCase = true) || p.status.equals("CONNECTED", ignoreCase = true)
+                ProviderHealthStatus(
+                    name = p.providerName,
+                    category = p.category,
+                    status = p.status,
+                    latencyMs = p.latencyMs.toInt(),
+                    isHealthy = isHealthy,
+                    rateLimitUsagePct = (100.0 - p.rateLimitRemainingPct).toInt().coerceIn(0, 100),
+                    lastSyncAgo = "${p.latencyMs.toInt()}ms"
+                )
+            }
+        }
+
         val isConnected = _isLiveConnected.value
         val binanceStatus = if (isConnected) "HEALTHY" else "DISCONNECTED"
         return listOf(

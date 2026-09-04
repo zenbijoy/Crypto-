@@ -51,6 +51,8 @@ from ml.experts.learned_moe import LearnedMixtureOfExperts
 from services.shadow_deployment import ShadowDeploymentManager
 from services.paper_trading import PaperTradingEngine
 from services.drift_engine_v2 import DriftEngineV2
+from api.v1_router import router as v1_router
+from api.fapi_adapter import fapi_router
 
 app = FastAPI(
     title="CryptoScope AI Quant Gateway",
@@ -65,6 +67,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(v1_router)
+app.include_router(fapi_router)
 
 # Singletons
 binance = BinanceFuturesProvider()
@@ -440,3 +445,111 @@ def prometheus_metrics():
         f"cryptoscope_total_fees_paid_usd {paper_service.account.total_fees_paid_usd:.2f}"
     ]
     return "\n".join(lines)
+
+
+# --- Production MLOps Endpoints ---
+
+from services.dlq import dlq_manager
+from feature_store.online.store import online_feature_store
+from feature_store.validation.parity import feature_parity_validator
+from services.model_serving.model_cache import model_cache
+from services.model_serving.rollback import rollback_manager
+from services.observability.kill_switch import kill_switch
+from services.admin.config_manager import config_manager
+from services.admin.backup_manager import backup_manager
+from services.observability.calibration_monitor import calibration_monitor
+from services.observability.performance_monitor import performance_monitor
+from services.observability.prediction_journal import prediction_journal
+from services.observability.ood_detector import ood_detector
+from services.observability.drift_and_expert_monitor import ensemble_diagnostics
+from services.scheduler_v2 import scheduler_v2
+
+
+@app.get("/mlops/dlq")
+def get_dlq(limit: int = 50, status_filter: Optional[str] = None):
+    return {"dlq_records": dlq_manager.inspect(limit=limit, status_filter=status_filter), "stats": dlq_manager.stats()}
+
+
+@app.post("/mlops/dlq/purge")
+def purge_dlq(confirm: bool = False):
+    return dlq_manager.purge(confirm=confirm)
+
+
+@app.get("/mlops/features/online")
+async def get_online_features(symbol: str = "BTCUSDT", horizon: str = "15m"):
+    values, avail, freshness = await online_feature_store.get_feature_vector(symbol, horizon)
+    clean_values = {k: (None if (v != v or v == float("inf") or v == float("-inf")) else v) for k, v in values.items()}
+    clean_freshness = {k: (None if (v != v or v == float("inf") or v == float("-inf")) else v) for k, v in freshness.items()}
+    return {"symbol": symbol, "horizon": horizon, "features": clean_values, "availability": avail, "freshness": clean_freshness}
+
+
+@app.get("/mlops/features/parity")
+async def check_feature_parity():
+    res = await feature_parity_validator.verify_parity(
+        symbol="BTCUSDT",
+        horizon="15m",
+        best_bid=67499.5,
+        best_ask=67500.5,
+        bid_vol_10bps=45.2,
+        ask_vol_10bps=42.1,
+        prices=[67490.0, 67495.0, 67500.0, 67502.0],
+        taker_buys=[10.5, 12.0],
+        taker_sells=[8.2, 9.1],
+        funding_rate=0.0001,
+        mark_price=67500.0,
+        index_price=67498.0
+    )
+    return res
+
+
+@app.get("/mlops/serving/status")
+def get_model_serving_status():
+    return model_cache.stats()
+
+
+@app.post("/mlops/serving/rollback")
+async def execute_model_rollback(asset: str = "BTCUSDT", horizon: str = "15m", reason: str = "Manual Admin Rollback"):
+    return await rollback_manager.rollback(asset=asset, horizon=horizon, reason=reason)
+
+
+@app.get("/mlops/admin/killswitch")
+def get_killswitch_status():
+    return kill_switch.state.model_dump()
+
+
+@app.post("/mlops/admin/killswitch")
+def update_killswitch(disable: bool = True, scope: str = "GLOBAL", reason: str = "Admin trigger"):
+    if scope == "GLOBAL":
+        kill_switch.set_global_prediction_kill(disable=disable, operator="ADMIN_API", reason=reason)
+    return {"status": "UPDATED", "state": kill_switch.state.model_dump()}
+
+
+@app.get("/mlops/admin/config")
+def get_operational_config():
+    return config_manager.get_config().model_dump()
+
+
+@app.post("/mlops/admin/backup")
+def run_backup_and_recovery():
+    backup = backup_manager.create_system_backup()
+    drill = backup_manager.run_disaster_recovery_drill()
+    return {"backup": backup, "drill": drill}
+
+
+@app.get("/mlops/observability/drift")
+def get_drift_and_diagnostics():
+    drift_detected, delta, details = ensemble_diagnostics.check_attribution_drift({
+        "order_imbalance": 0.36, "realized_volatility_5m": 0.24, "funding_rate": 0.20
+    })
+    return {"drift_detected": drift_detected, "attribution_delta": delta, "factors": details}
+
+
+@app.get("/mlops/observability/ood")
+def get_ood_status():
+    score, status, safe = ood_detector.calculate_ood_score([1.2, 67500.0, 0.05, 1.8, 250000.0, 0.0001])
+    return {"ood_score": score, "status": status, "safe_to_predict": safe}
+
+
+@app.get("/mlops/scheduler/tasks")
+def get_scheduler_tasks():
+    return scheduler_v2.list_tasks()

@@ -1,6 +1,7 @@
 package com.example.core.network.client
 
 import com.example.core.network.api.CryptoFuturesApiService
+import com.example.core.network.api.CryptoScopeBackendApiService
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import okhttp3.OkHttpClient
@@ -10,11 +11,15 @@ import retrofit2.converter.moshi.MoshiConverterFactory
 import java.util.concurrent.TimeUnit
 
 /**
- * Singleton network client configuring Retrofit with Moshi for public Crypto Futures exchange API.
+ * Singleton network client configuring Retrofit with Moshi for both the CryptoScope AI
+ * FastAPI Quant Gateway and public fallback market data services.
  */
 object CryptoApiClient {
 
-    private const val BASE_URL = "https://fapi.binance.com/"
+    const val LOCAL_BACKEND_URL = "http://10.0.2.2:8000/"
+    const val PUBLIC_BINANCE_URL = "https://fapi.binance.com/"
+
+    var activeBackendUrl: String = LOCAL_BACKEND_URL
 
     val moshi: Moshi by lazy {
         Moshi.Builder()
@@ -30,13 +35,13 @@ object CryptoApiClient {
 
     val okHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(15, TimeUnit.SECONDS)
-            .writeTimeout(15, TimeUnit.SECONDS)
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .writeTimeout(10, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
             .addInterceptor { chain ->
                 val request = chain.request().newBuilder()
-                    .header("User-Agent", "CryptoScope-AI/1.0 (Android)")
+                    .header("User-Agent", "CryptoScope-AI/2.4 (Android)")
                     .header("Accept", "application/json")
                     .build()
                 chain.proceed(request)
@@ -47,7 +52,7 @@ object CryptoApiClient {
 
     val retrofit: Retrofit by lazy {
         Retrofit.Builder()
-            .baseUrl(BASE_URL)
+            .baseUrl(PUBLIC_BINANCE_URL)
             .client(okHttpClient)
             .addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()
@@ -57,10 +62,22 @@ object CryptoApiClient {
         retrofit.create(CryptoFuturesApiService::class.java)
     }
 
+    val backendRetrofit: Retrofit by lazy {
+        Retrofit.Builder()
+            .baseUrl(activeBackendUrl)
+            .client(okHttpClient)
+            .addConverterFactory(MoshiConverterFactory.create(moshi))
+            .build()
+    }
+
+    val backendApiService: CryptoScopeBackendApiService by lazy {
+        backendRetrofit.create(CryptoScopeBackendApiService::class.java)
+    }
+
     /**
      * Factory function to create API service with custom Base URL if needed.
      */
-    fun createService(baseUrl: String = BASE_URL): CryptoFuturesApiService {
+    fun createService(baseUrl: String = PUBLIC_BINANCE_URL): CryptoFuturesApiService {
         return Retrofit.Builder()
             .baseUrl(baseUrl)
             .client(okHttpClient)
@@ -68,4 +85,14 @@ object CryptoApiClient {
             .build()
             .create(CryptoFuturesApiService::class.java)
     }
+
+    fun createBackendService(baseUrl: String = LOCAL_BACKEND_URL): CryptoScopeBackendApiService {
+        return Retrofit.Builder()
+            .baseUrl(baseUrl)
+            .client(okHttpClient)
+            .addConverterFactory(MoshiConverterFactory.create(moshi))
+            .build()
+            .create(CryptoScopeBackendApiService::class.java)
+    }
 }
+
