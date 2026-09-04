@@ -92,7 +92,8 @@ fun CryptoScopeApp(viewModel: CryptoScopeViewModel) {
                 when (route) {
                     ScreenRoute.SPLASH -> SplashScreen(viewModel = viewModel)
                     ScreenRoute.ONBOARDING -> OnboardingScreen(viewModel = viewModel)
-                    ScreenRoute.SIGN_IN -> SignInScreen(viewModel = viewModel)
+                    ScreenRoute.SIGN_IN -> SignInScreen(viewModel = viewModel, initialIsSignUp = false)
+                    ScreenRoute.SIGN_UP -> SignInScreen(viewModel = viewModel, initialIsSignUp = true)
                     ScreenRoute.MAIN -> {
                         when (uiState.activeTab) {
                             MainTab.HOME -> HomeScreen(viewModel = viewModel)

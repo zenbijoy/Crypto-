@@ -26,6 +26,7 @@ enum class ScreenRoute {
     SPLASH,
     ONBOARDING,
     SIGN_IN,
+    SIGN_UP,
     MAIN,
     ASSET_DETAIL,
     FEAR_AND_GREED_DETAIL,

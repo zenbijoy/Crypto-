@@ -18,4 +18,12 @@ class ExampleRobolectricTest {
     val appName = context.getString(R.string.app_name)
     assertEquals("CryptoScope AI", appName)
   }
+
+  @Test
+  fun `verify screen routes include auth destinations`() {
+    val signInRoute = com.example.ui.viewmodel.ScreenRoute.SIGN_IN
+    val signUpRoute = com.example.ui.viewmodel.ScreenRoute.SIGN_UP
+    assertEquals("SIGN_IN", signInRoute.name)
+    assertEquals("SIGN_UP", signUpRoute.name)
+  }
 }
