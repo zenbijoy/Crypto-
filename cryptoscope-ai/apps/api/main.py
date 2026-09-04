@@ -50,9 +50,9 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -68,13 +68,20 @@ async def on_startup():
     """Initializes and auto-discovers instruments across connected providers on launch."""
     await registry.initialize_and_discover()
 
-def canonical_envelope(data: Any, sources: List[str] = None, cached: bool = False) -> Dict[str, Any]:
+def canonical_envelope(data: Any, sources: Optional[List[Dict[str, Any]]] = None, cached: bool = False, provider: Optional[str] = None) -> Dict[str, Any]:
+    source_list = []
+    if sources:
+        source_list = sources
+    elif provider:
+        source_list = [{"provider": provider, "received_at": datetime.now(timezone.utc).isoformat()}]
+    else:
+        source_list = [{"provider": "SYSTEM", "received_at": datetime.now(timezone.utc).isoformat()}]
     return {
         "success": True,
         "data": data,
         "meta": {
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "source": sources or ["BINANCE", "BYBIT", "OKX", "COINBASE", "HYPERLIQUID"],
+            "sources": source_list,
             "cached": cached,
             "stale": False,
             "disclaimer": DISCLAIMER_TEXT

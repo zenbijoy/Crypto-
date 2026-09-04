@@ -312,96 +312,162 @@ class BinanceAdapter(MarketDataProvider, DerivativesProvider):
         return instruments
 
     async def fetch_ticker(self, instrument: CanonicalInstrument) -> CanonicalTicker:
-        base_prices = {"BTC": 67500.0, "ETH": 3500.0, "SOL": 145.0, "DOGE": 0.125}
-        p = base_prices.get(instrument.base_asset, 10.0)
-        return CanonicalTicker(
-            provider=self._provider,
-            instrument_id=instrument.instrument_id,
-            symbol=instrument.canonical_symbol,
-            base_asset=instrument.base_asset,
-            quote_asset=instrument.quote_asset,
-            price=p,
-            bid_price=round(p * 0.9999, 4),
-            ask_price=round(p * 1.0001, 4),
-            volume_24h_base=45000.0,
-            volume_24h_quote=p * 45000.0,
-            change_24h_pct=2.5,
-            high_24h=round(p * 1.03, 4),
-            low_24h=round(p * 0.97, 4),
-            timestamp=datetime.now(timezone.utc)
-        )
+        sym = instrument.provider_symbol or f"{instrument.base_asset}{instrument.quote_asset}"
+        url = f"{self.base_url}/fapi/v1/ticker/24hr"
+        now = datetime.now(timezone.utc)
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(url, params={"symbol": sym})
+            resp.raise_for_status()
+            data = resp.json()
+            p = float(data["lastPrice"])
+            return CanonicalTicker(
+                provider=self._provider,
+                instrument_id=instrument.instrument_id,
+                symbol=instrument.canonical_symbol,
+                base_asset=instrument.base_asset,
+                quote_asset=instrument.quote_asset,
+                price=p,
+                bid_price=float(data.get("bidPrice", p * 0.9999)),
+                ask_price=float(data.get("askPrice", p * 1.0001)),
+                volume_24h_base=float(data.get("volume", 0.0)),
+                volume_24h_quote=float(data.get("quoteVolume", 0.0)),
+                change_24h_pct=float(data.get("priceChangePercent", 0.0)),
+                high_24h=float(data.get("highPrice", p)),
+                low_24h=float(data.get("lowPrice", p)),
+                timestamp=now
+            )
 
     async def fetch_tickers(self) -> List[CanonicalTicker]:
         instruments = await self.discover_instruments()
         return [await self.fetch_ticker(inst) for inst in instruments]
 
     async def fetch_ohlcv(self, instrument: CanonicalInstrument, timeframe: str = "1h", start: Optional[datetime] = None, end: Optional[datetime] = None, limit: int = 50) -> List[CanonicalCandle]:
-        base_p = 67500.0 if instrument.base_asset == "BTC" else (0.125 if instrument.base_asset == "DOGE" else 150.0)
-        now = datetime.now(timezone.utc)
-        return [
-            CanonicalCandle(
-                provider=self._provider,
-                instrument_id=instrument.instrument_id,
-                timeframe=timeframe,
-                open_time=datetime.fromtimestamp(now.timestamp() - (limit - i) * 3600, tz=timezone.utc),
-                close_time=datetime.fromtimestamp(now.timestamp() - (limit - i - 1) * 3600, tz=timezone.utc),
-                open=base_p * 0.995,
-                high=base_p * 1.01,
-                low=base_p * 0.99,
-                close=base_p,
-                volume_base=100.0,
-                volume_quote=100.0 * base_p,
-                trade_count=1000
-            ) for i in range(limit)
-        ]
+        sym = instrument.provider_symbol or f"{instrument.base_asset}{instrument.quote_asset}"
+        url = f"{self.base_url}/fapi/v1/klines"
+        params = {"symbol": sym, "interval": timeframe, "limit": min(limit, 500)}
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(url, params=params)
+            resp.raise_for_status()
+            raw_klines = resp.json()
+            candles = []
+            for k in raw_klines:
+                candles.append(
+                    CanonicalCandle(
+                        provider=self._provider,
+                        instrument_id=instrument.instrument_id,
+                        timeframe=timeframe,
+                        open_time=datetime.fromtimestamp(k[0] / 1000.0, tz=timezone.utc),
+                        close_time=datetime.fromtimestamp(k[6] / 1000.0, tz=timezone.utc),
+                        open=float(k[1]),
+                        high=float(k[2]),
+                        low=float(k[3]),
+                        close=float(k[4]),
+                        volume_base=float(k[5]),
+                        volume_quote=float(k[7]),
+                        trade_count=int(k[8])
+                    )
+                )
+            return candles
 
     async def fetch_trades(self, instrument: CanonicalInstrument, limit: int = 100) -> List[CanonicalTrade]:
-        return [
-            CanonicalTrade(
-                provider=self._provider,
-                instrument_id=instrument.instrument_id,
-                trade_id=f"binance_{i}",
-                timestamp=datetime.now(timezone.utc),
-                price=67500.0,
-                quantity_base=0.5,
-                quantity_quote=33750.0,
-                side="BUY" if i % 2 == 0 else "SELL",
-                is_buyer_maker=False
-            ) for i in range(limit)
-        ]
+        sym = instrument.provider_symbol or f"{instrument.base_asset}{instrument.quote_asset}"
+        url = f"{self.base_url}/fapi/v1/trades"
+        params = {"symbol": sym, "limit": min(limit, 500)}
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(url, params=params)
+            resp.raise_for_status()
+            raw_trades = resp.json()
+            trades = []
+            for t in raw_trades:
+                trades.append(
+                    CanonicalTrade(
+                        provider=self._provider,
+                        instrument_id=instrument.instrument_id,
+                        trade_id=str(t["id"]),
+                        timestamp=datetime.fromtimestamp(t["time"] / 1000.0, tz=timezone.utc),
+                        price=float(t["price"]),
+                        quantity_base=float(t["qty"]),
+                        quantity_quote=float(t["quoteQty"]),
+                        side="SELL" if t.get("isBuyerMaker") else "BUY",
+                        is_buyer_maker=bool(t.get("isBuyerMaker"))
+                    )
+                )
+            return trades
 
     async def fetch_orderbook(self, instrument: CanonicalInstrument, depth: int = 50) -> CanonicalOrderBook:
-        base_p = 67500.0 if instrument.base_asset == "BTC" else 150.0
-        return CanonicalOrderBook(
-            provider=self._provider,
-            instrument_id=instrument.instrument_id,
-            timestamp=datetime.now(timezone.utc),
-            bids=[[round(base_p - i * (base_p * 0.0005), 4), round(5.0 + i * 1.5, 2)] for i in range(1, depth + 1)],
-            asks=[[round(base_p + i * (base_p * 0.0005), 4), round(4.8 + i * 1.4, 2)] for i in range(1, depth + 1)],
-            spread_bps=1.0,
-            mid_price=base_p,
-            microprice=round(base_p * 1.0001, 4),
-            imbalance_10bps=0.25
-        )
+        sym = instrument.provider_symbol or f"{instrument.base_asset}{instrument.quote_asset}"
+        url = f"{self.base_url}/fapi/v1/depth"
+        params = {"symbol": sym, "limit": min(depth, 100)}
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(url, params=params)
+            resp.raise_for_status()
+            d = resp.json()
+            bids = [[float(b[0]), float(b[1])] for b in d.get("bids", [])]
+            asks = [[float(a[0]), float(a[1])] for a in d.get("asks", [])]
+            best_bid = bids[0][0] if bids else 0.0
+            best_ask = asks[0][0] if asks else 0.0
+            spread_bps = ((best_ask - best_bid) / best_bid * 10000.0) if best_bid > 0 else 0.0
+            mid_p = (best_bid + best_ask) / 2.0 if (best_bid > 0 and best_ask > 0) else best_bid
+            bid_vol = bids[0][1] if bids else 0.0
+            ask_vol = asks[0][1] if asks else 0.0
+            micro = (best_bid * ask_vol + best_ask * bid_vol) / (bid_vol + ask_vol) if (bid_vol + ask_vol) > 0 else mid_p
+            imbalance = (bid_vol - ask_vol) / (bid_vol + ask_vol) if (bid_vol + ask_vol) > 0 else 0.0
+            return CanonicalOrderBook(
+                provider=self._provider,
+                instrument_id=instrument.instrument_id,
+                timestamp=datetime.now(timezone.utc),
+                bids=bids,
+                asks=asks,
+                spread_bps=round(spread_bps, 2),
+                mid_price=round(mid_p, 4),
+                microprice=round(micro, 4),
+                imbalance_10bps=round(imbalance, 4)
+            )
 
     async def fetch_open_interest(self, instrument: CanonicalInstrument) -> float:
-        return 8_500_000_000.0 if instrument.base_asset == "BTC" else 450_000_000.0
+        sym = instrument.provider_symbol or f"{instrument.base_asset}{instrument.quote_asset}"
+        url = f"{self.base_url}/fapi/v1/openInterest"
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(url, params={"symbol": sym})
+            resp.raise_for_status()
+            data = resp.json()
+            return float(data.get("openInterest", 0.0))
 
     async def fetch_funding_rate(self, instrument: CanonicalInstrument) -> float:
-        return 0.000100
+        sym = instrument.provider_symbol or f"{instrument.base_asset}{instrument.quote_asset}"
+        url = f"{self.base_url}/fapi/v1/premiumIndex"
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(url, params={"symbol": sym})
+            resp.raise_for_status()
+            data = resp.json()
+            return float(data.get("lastFundingRate", 0.0))
 
     async def fetch_derivatives_snapshot(self, instrument: CanonicalInstrument) -> CanonicalDerivativesSnapshot:
-        base_p = 67500.0 if instrument.base_asset == "BTC" else 150.0
-        return CanonicalDerivativesSnapshot(
-            provider=self._provider,
-            instrument_id=instrument.instrument_id,
-            timestamp=datetime.now(timezone.utc),
-            funding_rate=0.000100,
-            predicted_funding_rate=0.000105,
-            funding_rate_7d_zscore=0.45,
-            open_interest_usd=await self.fetch_open_interest(instrument),
-            mark_price=base_p,
-            index_price=round(base_p * 0.9999, 4),
-            basis_bps=1.0
-        )
+        sym = instrument.provider_symbol or f"{instrument.base_asset}{instrument.quote_asset}"
+        prem_url = f"{self.base_url}/fapi/v1/premiumIndex"
+        oi_url = f"{self.base_url}/fapi/v1/openInterest"
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            prem_res = await client.get(prem_url, params={"symbol": sym})
+            prem_data = prem_res.json() if prem_res.status_code == 200 else {}
+            oi_res = await client.get(oi_url, params={"symbol": sym})
+            oi_data = oi_res.json() if oi_res.status_code == 200 else {}
+
+            mark_p = float(prem_data.get("markPrice", 0.0))
+            index_p = float(prem_data.get("indexPrice", mark_p))
+            funding_r = float(prem_data.get("lastFundingRate", 0.0))
+            oi_val = float(oi_data.get("openInterest", 0.0)) * mark_p if mark_p > 0 else 0.0
+            basis = ((mark_p - index_p) / index_p * 10000.0) if index_p > 0 else 0.0
+
+            return CanonicalDerivativesSnapshot(
+                provider=self._provider,
+                instrument_id=instrument.instrument_id,
+                timestamp=datetime.now(timezone.utc),
+                funding_rate=funding_r,
+                predicted_funding_rate=funding_r,
+                funding_rate_7d_zscore=0.0,
+                open_interest_usd=oi_val,
+                mark_price=mark_p,
+                index_price=index_p,
+                basis_bps=round(basis, 2)
+            )
 

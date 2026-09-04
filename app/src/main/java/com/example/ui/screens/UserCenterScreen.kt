@@ -376,6 +376,16 @@ fun UserCenterScreen(viewModel: CryptoScopeViewModel) {
                         onClick = { Toast.makeText(context, "App is up to date (3.9.9)", Toast.LENGTH_SHORT).show() },
                         textColor = textColor,
                         borderColor = borderColor,
+                        showDivider = true
+                    )
+
+                    // Switch Account / Log In
+                    SettingsRow(
+                        title = "Account Access",
+                        value = "Sign In / Sign Up",
+                        onClick = { viewModel.navigateTo(ScreenRoute.SIGN_IN) },
+                        textColor = BrandBlue,
+                        borderColor = borderColor,
                         showDivider = false
                     )
                 }

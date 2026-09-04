@@ -39,9 +39,23 @@ class Settings(BaseSettings):
     MAX_SPREAD_BPS_LIMIT: float = 15.0
     WS_HEARTBEAT_INTERVAL_SECONDS: int = 15
     
+    # Environment & CORS Configuration
+    ENVIRONMENT: str = "production"
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:3000",
+        "http://localhost:8080",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8080",
+        "https://cryptoscope.ai",
+        "https://app.cryptoscope.ai"
+    ]
+    ALLOWED_HOSTS: List[str] = ["*"]
+    
     # Database & Cache
     DATABASE_URL: str = "sqlite+aiosqlite:///./cryptoscope.db"
     REDIS_URL: Optional[str] = None
+    MLFLOW_TRACKING_URI: Optional[str] = None
+    TELEGRAM_BOT_TOKEN: Optional[str] = None
 
     class Config:
         case_sensitive = True
