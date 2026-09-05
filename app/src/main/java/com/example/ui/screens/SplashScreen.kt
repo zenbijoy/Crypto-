@@ -32,7 +32,7 @@ fun SplashScreen(viewModel: CryptoScopeViewModel) {
     LaunchedEffect(Unit) {
         isVisible = true
         delay(2200)
-        viewModel.navigateTo(ScreenRoute.ONBOARDING)
+        viewModel.handleSplashNavigation()
     }
 
     Box(
@@ -43,7 +43,7 @@ fun SplashScreen(viewModel: CryptoScopeViewModel) {
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
             ) {
-                viewModel.navigateTo(ScreenRoute.ONBOARDING)
+                viewModel.handleSplashNavigation()
             }
             .testTag("splash_screen"),
         contentAlignment = Alignment.Center

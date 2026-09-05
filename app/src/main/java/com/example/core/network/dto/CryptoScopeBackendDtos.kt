@@ -180,3 +180,61 @@ data class ProviderStatusDto(
     @Json(name = "error_rate_pct") val errorRatePct: Double = 0.0,
     @Json(name = "rate_limit_remaining_pct") val rateLimitRemainingPct: Double = 100.0
 )
+
+@JsonClass(generateAdapter = true)
+data class UserProfileDto(
+    @Json(name = "user_id") val userId: String = "",
+    @Json(name = "email") val email: String? = null,
+    @Json(name = "display_name") val displayName: String? = null,
+    @Json(name = "avatar_url") val avatarUrl: String? = null,
+    @Json(name = "timezone") val timezone: String = "UTC",
+    @Json(name = "preferred_currency") val preferredCurrency: String = "USD",
+    @Json(name = "default_asset") val defaultAsset: String = "BTC",
+    @Json(name = "default_horizon") val defaultHorizon: String = "1h",
+    @Json(name = "theme") val theme: String = "dark",
+    @Json(name = "language") val language: String = "en"
+)
+
+@JsonClass(generateAdapter = true)
+data class UserProfileResponseDto(
+    @Json(name = "success") val success: Boolean = true,
+    @Json(name = "data") val data: UserProfileDto? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class WatchlistItemDto(
+    @Json(name = "id") val id: Int = 0,
+    @Json(name = "symbol") val symbol: String = "",
+    @Json(name = "notes") val notes: String? = null,
+    @Json(name = "created_at") val createdAt: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class WatchlistResponseDto(
+    @Json(name = "success") val success: Boolean = true,
+    @Json(name = "data") val data: List<WatchlistItemDto> = emptyList()
+)
+
+@JsonClass(generateAdapter = true)
+data class AlertItemDto(
+    @Json(name = "id") val id: String = "",
+    @Json(name = "symbol") val symbol: String = "",
+    @Json(name = "horizon") val horizon: String = "1h",
+    @Json(name = "min_confidence") val minConfidence: Int = 80,
+    @Json(name = "signal_type") val signalType: String = "LONG",
+    @Json(name = "is_active") val isActive: Boolean = true,
+    @Json(name = "created_at") val createdAt: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class AlertsResponseDto(
+    @Json(name = "success") val success: Boolean = true,
+    @Json(name = "data") val data: List<AlertItemDto> = emptyList()
+)
+
+@JsonClass(generateAdapter = true)
+data class AlertResponseDto(
+    @Json(name = "success") val success: Boolean = true,
+    @Json(name = "data") val data: AlertItemDto? = null
+)
+

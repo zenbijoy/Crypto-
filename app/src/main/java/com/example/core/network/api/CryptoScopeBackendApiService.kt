@@ -53,4 +53,33 @@ interface CryptoScopeBackendApiService {
 
     @GET("api/v1/providers/status")
     suspend fun getProvidersStatus(): Response<List<ProviderStatusDto>>
+
+    @GET("api/v1/users/me")
+    suspend fun getMyProfile(): Response<UserProfileResponseDto>
+
+    @GET("api/v1/watchlist")
+    suspend fun getWatchlist(): Response<WatchlistResponseDto>
+
+    @retrofit2.http.POST("api/v1/watchlist")
+    suspend fun addToWatchlist(
+        @retrofit2.http.Body body: Map<String, String>
+    ): Response<Map<String, Any>>
+
+    @retrofit2.http.DELETE("api/v1/watchlist/{symbol}")
+    suspend fun removeFromWatchlist(
+        @Path("symbol") symbol: String
+    ): Response<Map<String, Any>>
+
+    @GET("api/v1/alerts")
+    suspend fun getAlerts(): Response<AlertsResponseDto>
+
+    @retrofit2.http.POST("api/v1/alerts")
+    suspend fun createAlert(
+        @retrofit2.http.Body body: Map<String, Any>
+    ): Response<AlertResponseDto>
+
+    @retrofit2.http.DELETE("api/v1/alerts/{alert_id}")
+    suspend fun deleteAlert(
+        @Path("alert_id") alertId: String
+    ): Response<Map<String, Any>>
 }

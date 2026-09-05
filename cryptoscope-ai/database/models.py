@@ -307,6 +307,7 @@ class AuditLogModel(Base):
 class AlertRuleModel(Base):
     __tablename__ = "alerts"
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String(64), nullable=True, index=True)
     symbol = Column(String(20), nullable=False)
     horizon = Column(String(10), default="1h")
     min_confidence = Column(Integer, default=80)
@@ -326,8 +327,9 @@ class TelegramUserModel(Base):
 class UserProfileModel(Base):
     __tablename__ = "user_profiles"
     id = Column(Integer, primary_key=True, index=True)
-    supabase_user_id = Column(String(64), unique=True, nullable=False, index=True)
-    email = Column(String(100), nullable=False, index=True)
+    user_id = Column(String(64), unique=True, nullable=False, index=True)
+    supabase_user_id = Column(String(64), nullable=True, index=True)
+    email = Column(String(100), nullable=True, index=True)
     display_name = Column(String(100), nullable=True)
     avatar_url = Column(String(255), nullable=True)
     timezone = Column(String(50), default="UTC")
@@ -335,7 +337,9 @@ class UserProfileModel(Base):
     default_asset = Column(String(20), default="BTC")
     default_horizon = Column(String(10), default="1h")
     theme = Column(String(20), default="dark")
+    language = Column(String(10), default="en")
     created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
 
 class WatchlistModel(Base):

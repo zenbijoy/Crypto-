@@ -7,6 +7,12 @@
 -- Enable TimescaleDB extension
 CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;
 
+-- Canonical Schemas (Phase 8)
+CREATE SCHEMA IF NOT EXISTS product;
+CREATE SCHEMA IF NOT EXISTS quant;
+CREATE SCHEMA IF NOT EXISTS mlops;
+CREATE SCHEMA IF NOT EXISTS audit;
+
 -- 1. Candlesticks (OHLCV)
 CREATE TABLE IF NOT EXISTS candles (
     timestamp TIMESTAMPTZ NOT NULL,

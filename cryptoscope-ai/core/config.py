@@ -52,10 +52,15 @@ class Settings(BaseSettings):
     ALLOWED_HOSTS: List[str] = ["*"]
     
     # Database & Cache
-    DATABASE_URL: str = "sqlite+aiosqlite:///./cryptoscope.db"
-    REDIS_URL: Optional[str] = None
-    MLFLOW_TRACKING_URI: Optional[str] = None
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/cryptoscope"
+    REDIS_URL: str = "redis://localhost:6379/0"
+    MLFLOW_TRACKING_URI: Optional[str] = "http://localhost:5000"
     TELEGRAM_BOT_TOKEN: Optional[str] = None
+
+    # Exchange Provider Base URLs
+    BINANCE_BASE_URL: str = "https://api.binance.com"
+    BYBIT_BASE_URL: str = "https://api.bybit.com"
+    OKX_BASE_URL: str = "https://www.okx.com"
 
     # Supabase Auth Configuration
     SUPABASE_URL: Optional[str] = None

@@ -83,7 +83,9 @@ data class UiState(
     val assetDetailTab: AssetDetailTab = AssetDetailTab.SPOT,
     val selectedAsset: AssetSymbol = AssetSymbol.BTC,
     val selectedHorizon: Horizon = Horizon.H_1H,
+    val isOnboardingCompleted: Boolean = false,
     val isAuthenticated: Boolean = true,
+    val hasActiveSession: Boolean = true,
     val userProfile: UserProfile = UserProfile(),
     val userName: String = "user-135927",
     val userEmail: String = "user@cryptoscope.ai",
@@ -212,6 +214,42 @@ class CryptoScopeViewModel(application: Application) : AndroidViewModel(applicat
                     )
                 }
             }
+        }
+    }
+
+    /**
+     * Phase 17 App Startup Flow:
+     * Splash -> check onboarding completion -> check Supabase session
+     */
+    fun handleSplashNavigation() {
+        val state = _uiState.value
+        when {
+            !state.isOnboardingCompleted -> {
+                _uiState.update { it.copy(currentRoute = ScreenRoute.ONBOARDING) }
+            }
+            state.isAuthenticated && state.hasActiveSession -> {
+                _uiState.update { it.copy(currentRoute = ScreenRoute.MAIN, activeTab = MainTab.HOME) }
+            }
+            else -> {
+                _uiState.update { it.copy(currentRoute = ScreenRoute.SIGN_IN) }
+            }
+        }
+    }
+
+    fun completeOnboarding() {
+        _uiState.update { it.copy(isOnboardingCompleted = true, currentRoute = ScreenRoute.SIGN_IN) }
+    }
+
+    fun onSignInSuccess(token: String, email: String) {
+        com.example.core.network.client.CryptoApiClient.setAuthToken(token)
+        _uiState.update {
+            it.copy(
+                isAuthenticated = true,
+                hasActiveSession = true,
+                userEmail = email,
+                currentRoute = ScreenRoute.MAIN,
+                activeTab = MainTab.HOME
+            )
         }
     }
 
