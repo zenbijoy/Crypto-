@@ -149,61 +149,12 @@ class AIAnalysisService:
             )
 
     def get_prediction(self, canonical_symbol: str = "BTC/USDT/PERP", horizon: str = "15m") -> AIPredictionResponse:
-        cur_px = 78120.0
-        h_norm = horizon.lower()
-
-        ret_map = {
-            "1m": 0.08, "5m": 0.22, "15m": 0.45, "30m": 0.65,
-            "1h": 1.15, "4h": 2.40, "12h": 3.80, "1d": 4.90, "3d": 7.20, "7d": 11.50
-        }
-        ret = ret_map.get(h_norm, 0.45)
-        vol = ret * 1.6
-
-        p_up = 0.58
-        p_down = 0.24
-        p_side = 0.18
-
-        p10 = cur_px * (1.0 - (vol * 1.8 / 100.0))
-        p25 = cur_px * (1.0 - (vol * 0.9 / 100.0))
-        p50 = cur_px * (1.0 + (ret / 100.0))
-        p75 = cur_px * (1.0 + (vol * 0.9 / 100.0))
-        p90 = cur_px * (1.0 + (vol * 1.8 / 100.0))
-
-        factors = [
-            ExplainabilityFactor(feature_name="Order Flow CVD Divergence", contribution_pct=34.2, impact="POSITIVE"),
-            ExplainabilityFactor(feature_name="Spot ETF Net Accumulation", contribution_pct=26.5, impact="POSITIVE"),
-            ExplainabilityFactor(feature_name="Whale Exchange Netflow", contribution_pct=18.4, impact="POSITIVE"),
-            ExplainabilityFactor(feature_name="Long Liquidation Pool (77.2K)", contribution_pct=-14.1, impact="NEGATIVE"),
-            ExplainabilityFactor(feature_name="Macro Yield Spread", contribution_pct=6.8, impact="POSITIVE")
-        ]
-
-        return AIPredictionResponse(
-            canonical_symbol=canonical_symbol,
-            horizon=horizon,
-            direction="UP",
-            direction_probabilities={"UP": p_up, "SIDEWAYS": p_side, "DOWN": p_down},
-            expected_return_pct=round(ret, 2),
-            expected_volatility_pct=round(vol, 2),
-            quantiles=QuantileEnvelope(
-                p10=round(p10, 2),
-                p25=round(p25, 2),
-                p50=round(p50, 2),
-                p75=round(p75, 2),
-                p90=round(p90, 2)
-            ),
-            model_tier="CHAMPION_MoE_ENSEMBLE",
-            model_version="v2.4.0-deep-ensemble",
-            uncertainty_score=0.18,
-            abstention_state={
-                "abstained": False,
-                "reason": None,
-                "risk_veto": False,
-                "ood_status": "NORMAL"
-            },
-            feature_importance=factors,
-            data_quality_state="HIGH",
-            confidence_score=0.86,
-            updated_at=datetime.now(timezone.utc)
+        """DEPRECATED / REMOVED: Legacy hardcoded fake prediction stub.
+        Quarantined per FD-14. Use services.prediction.PredictionEngine or apps/api/routers/predictions.py instead.
+        """
+        raise NotImplementedError(
+            "AIAnalysisService.get_prediction is quarantined and removed. "
+            "Use services.prediction.PredictionEngine or apps/api/routers/predictions.py instead."
         )
 
 

@@ -9,6 +9,7 @@ import com.example.core.database.CryptoScopeDatabase
 import com.example.core.database.PaperPositionEntity
 import com.example.core.database.PriceThresholdEntity
 import com.example.core.model.*
+import com.example.core.network.client.CryptoApiClient
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -134,6 +135,7 @@ class CryptoScopeViewModel(application: Application) : AndroidViewModel(applicat
     val fearGreedHistory = repository.fearGreedHistory
     val contractRadarAlerts = repository.contractRadarAlerts
     val backendNews = repository.backendNews
+    val sentiment: StateFlow<SentimentData> = repository.sentimentData
 
     fun getMarkets(): List<MarketItem> = repository.getMarkets()
     fun getPrediction(asset: AssetSymbol = _uiState.value.selectedAsset, horizon: Horizon = _uiState.value.selectedHorizon): PredictionForecast = repository.getPrediction(asset, horizon)
@@ -582,7 +584,8 @@ class CryptoScopeViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun signOut() {
-        _uiState.update { it.copy(isAuthenticated = false, currentRoute = ScreenRoute.SIGN_IN) }
+        CryptoApiClient.setAuthToken(null)
+        _uiState.update { it.copy(isAuthenticated = false, userEmail = "", currentRoute = ScreenRoute.SIGN_IN) }
     }
 }
 

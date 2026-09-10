@@ -6,6 +6,7 @@ Implements Sections 46, 47, 48, 49:
 - Ping/Pong heartbeats and stale connection cleanup
 - Channel validation and subscription restoration
 """
+import uuid
 from typing import Dict, Set, Any, Optional
 import json
 import asyncio
@@ -19,11 +20,22 @@ class WebSocketConnectionManager:
         self.channel_subscribers: Dict[str, Set[str]] = {}           # channel -> Set[client_id]
         self._lock = asyncio.Lock()
 
-    async def connect(self, client_id: str, websocket: WebSocket):
-        await websocket.accept()
+    async def connect(self, arg1: Any, arg2: Any = None) -> str:
+        """
+        Accepts either connect(websocket) or connect(client_id, websocket).
+        Returns the registered client_id.
+        """
+        if isinstance(arg1, str) and arg2 is not None:
+            client_id = arg1
+            websocket: WebSocket = arg2
+        else:
+            websocket: WebSocket = arg1
+            client_id = arg2 or f"ws_{uuid.uuid4().hex[:8]}"
+
         async with self._lock:
             self.active_connections[client_id] = websocket
             self.subscriptions[client_id] = set()
+        return client_id
 
     async def disconnect(self, client_id: str):
         async with self._lock:
@@ -38,6 +50,45 @@ class WebSocketConnectionManager:
                         if not self.channel_subscribers[chan]:
                             del self.channel_subscribers[chan]
                 del self.subscriptions[client_id]
+
+    async def handle_client_message(self, client_id: str, data: str):
+        try:
+            payload = json.loads(data) if isinstance(data, str) else data
+            action = payload.get("action", "").lower()
+            ws = self.active_connections.get(client_id)
+            if not ws:
+                return
+
+            if action == "ping":
+                await ws.send_text(json.dumps({
+                    "action": "pong",
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                }))
+            elif action == "subscribe":
+                channel = payload.get("channel")
+                if channel and await self.subscribe(client_id, channel):
+                    await ws.send_text(json.dumps({
+                        "event": "subscribed",
+                        "channel": channel,
+                        "success": True
+                    }))
+                else:
+                    await ws.send_text(json.dumps({
+                        "event": "error",
+                        "message": f"Invalid or disallowed channel: {channel}",
+                        "success": False
+                    }))
+            elif action == "unsubscribe":
+                channel = payload.get("channel")
+                if channel:
+                    await self.unsubscribe(client_id, channel)
+                    await ws.send_text(json.dumps({
+                        "event": "unsubscribed",
+                        "channel": channel,
+                        "success": True
+                    }))
+        except Exception:
+            pass
 
     async def subscribe(self, client_id: str, channel: str) -> bool:
         if not self._is_valid_channel(channel):

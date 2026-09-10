@@ -122,6 +122,20 @@ class CryptoScopeBackendRemoteDataSource(
         }
     }
 
+    suspend fun fetchPrediction(symbol: String, horizon: String = "15m"): Result<AiPredictionDto> = withContext(Dispatchers.IO) {
+        try {
+            val cleanSymbol = symbol.uppercase().replace("USDT", "").replace("USDC", "").replace("USD", "")
+            val response = apiService.getPrediction(cleanSymbol, horizon)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("HTTP ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun fetchNews(): Result<List<NewsItemDto>> = withContext(Dispatchers.IO) {
         try {
             val response = apiService.getNews()

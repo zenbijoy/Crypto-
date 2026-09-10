@@ -50,7 +50,7 @@ fun HomeScreen(viewModel: CryptoScopeViewModel) {
     val livePrices by viewModel.repository.livePrices.collectAsState()
     val liveMarkets by viewModel.liveMarkets.collectAsState()
     val marketOverview by viewModel.marketOverview.collectAsState()
-    val sentiment = remember(livePrices) { viewModel.repository.getSentiment() }
+    val sentiment = remember(livePrices, uiState.selectedAsset) { viewModel.repository.getSentiment(uiState.selectedAsset) }
 
     val fgScore = marketOverview?.fearAndGreed?.value ?: sentiment.fearGreedScore
     val fgClassification = marketOverview?.fearAndGreed?.classification ?: sentiment.fearGreedLabel
@@ -63,10 +63,10 @@ fun HomeScreen(viewModel: CryptoScopeViewModel) {
 
     val displayedMovers = remember(liveMarkets, selectedMoverTab) {
         when (selectedMoverTab) {
-            "Gainers" -> liveMarkets.sortedByDescending { it.change24hPct }.take(5)
-            "Losers" -> liveMarkets.sortedBy { it.change24hPct }.take(5)
+            "Gainers" -> liveMarkets.sortedByDescending { it.change24h }.take(5)
+            "Losers" -> liveMarkets.sortedBy { it.change24h }.take(5)
             "Funding Rate" -> liveMarkets.sortedByDescending { it.fundingRate }.take(5)
-            else -> liveMarkets.sortedByDescending { it.openInterestUsd }.take(5)
+            else -> liveMarkets.sortedByDescending { it.openInterest }.take(5)
         }
     }
 
@@ -519,7 +519,7 @@ fun HomeScreen(viewModel: CryptoScopeViewModel) {
 
                 // BTC Market Cap Dominance Card
                 val btcDom = marketOverview?.btcDominance
-                val btcDomPct = btcDom?.percentage ?: 58.42
+                val btcDomPct = btcDom?.dominancePct ?: 58.42
                 val btcDomChg = btcDom?.change24hPct ?: -0.05
                 val isBtcDomPos = btcDomChg >= 0
                 Surface(
@@ -543,8 +543,8 @@ fun HomeScreen(viewModel: CryptoScopeViewModel) {
 
                 // Altcoin Season Index Card
                 val altSeason = marketOverview?.altcoinSeason
-                val altScore = altSeason?.score ?: 51
-                val altLabel = altSeason?.label ?: "Neutral Market"
+                val altScore = altSeason?.index ?: 51
+                val altLabel = altSeason?.classification ?: "Neutral Market"
                 Surface(
                     shape = RoundedCornerShape(14.dp),
                     color = cardColor,
@@ -821,13 +821,13 @@ fun HomeScreen(viewModel: CryptoScopeViewModel) {
 
                     // Coin rows from live displayedMovers
                     displayedMovers.take(5).forEachIndexed { idx, market ->
-                        val isPos = market.change24hPct >= 0
+                        val isPos = market.change24h >= 0
                         val badgeCol = if (isPos) SemanticPositive else SemanticNegative
                         val compactOi = when {
-                            market.openInterestUsd >= 1e9 -> String.format(java.util.Locale.US, "%.1fB", market.openInterestUsd / 1e9)
-                            market.openInterestUsd >= 1e6 -> String.format(java.util.Locale.US, "%.1fM", market.openInterestUsd / 1e6)
-                            market.openInterestUsd >= 1e3 -> String.format(java.util.Locale.US, "%.1fK", market.openInterestUsd / 1e3)
-                            else -> String.format(java.util.Locale.US, "%.0f", market.openInterestUsd)
+                            market.openInterest >= 1e9 -> String.format(java.util.Locale.US, "%.1fB", market.openInterest / 1e9)
+                            market.openInterest >= 1e6 -> String.format(java.util.Locale.US, "%.1fM", market.openInterest / 1e6)
+                            market.openInterest >= 1e3 -> String.format(java.util.Locale.US, "%.1fK", market.openInterest / 1e3)
+                            else -> String.format(java.util.Locale.US, "%.0f", market.openInterest)
                         }
                         val formattedPrice = when {
                             market.price >= 100 -> String.format(java.util.Locale.US, "%,.2f", market.price)
@@ -881,7 +881,7 @@ fun HomeScreen(viewModel: CryptoScopeViewModel) {
                                 color = badgeCol
                             ) {
                                 Text(
-                                    text = "${if (isPos) "+" else ""}${String.format(java.util.Locale.US, "%.2f", market.change24hPct)}%",
+                                    text = "${if (isPos) "+" else ""}${String.format(java.util.Locale.US, "%.2f", market.change24h)}%",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White,

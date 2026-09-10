@@ -84,6 +84,26 @@ class OrderBookEngine:
             "liquidity_walls": walls[:4]
         }
 
+    async def get_depth(self, symbol: str, depth: int = 50) -> Dict[str, Any]:
+        from services.registry import registry
+        clean = symbol.upper().replace("-", "").replace("/", "")
+        inst = registry.get_instrument_by_id(f"BINANCE:{clean}:PERPETUAL")
+        bids: List[Tuple[float, float]] = []
+        asks: List[Tuple[float, float]] = []
+        if inst and hasattr(registry, "binance") and registry.binance is not None:
+            try:
+                ob = await registry.binance.fetch_orderbook(inst, limit=depth)
+                bids = [(b.price, b.quantity) for b in ob.bids]
+                asks = [(a.price, a.quantity) for a in ob.asks]
+            except Exception:
+                pass
+        
+        metrics = self.compute_metrics(bids=bids, asks=asks)
+        metrics["bids"] = [[p, v] for p, v in bids]
+        metrics["asks"] = [[p, v] for p, v in asks]
+        metrics["symbol"] = clean
+        return metrics
+
 
 orderbook_engine = OrderBookEngine(symbol="BTCUSDT")
 

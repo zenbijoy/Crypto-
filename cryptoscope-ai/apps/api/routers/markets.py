@@ -16,21 +16,27 @@ from fastapi import APIRouter, Query, HTTPException, Depends
 from core.redis import redis_client
 from services.registry import registry
 from services.aggregation import market_aggregator
-from apps.api.errors import DataUnavailableError
+from core.exceptions import DataUnavailableError
 
 router = APIRouter(tags=["Markets"])
 
 
-def canonical_envelope(data: Any, provider: str = "BINANCE") -> Dict[str, Any]:
-    return {
+def canonical_envelope(data: Any, provider: str = "BINANCE", cached: bool = False, **kwargs) -> Dict[str, Any]:
+    envelope = {
         "success": True,
         "data": data,
         "meta": {
             "source": provider,
+            "cached": cached,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "data_quality_score": 98
         }
     }
+    if isinstance(data, dict):
+        for k, v in data.items():
+            if k not in envelope:
+                envelope[k] = v
+    return envelope
 
 
 @router.get("/api/v1/market/overview")
@@ -38,6 +44,7 @@ def canonical_envelope(data: Any, provider: str = "BINANCE") -> Dict[str, Any]:
 async def get_market_overview():
     """Returns top market overview across assets."""
     summary = await market_aggregator.get_market_summary()
+    now_iso = datetime.now(timezone.utc).isoformat()
     return {
         "success": True,
         "total_market_cap_usd": 3.42e12,
@@ -46,7 +53,46 @@ async def get_market_overview():
         "fear_greed_index": 72,
         "fear_greed_label": "Greed",
         "active_markets_count": len(summary) if summary else 10,
-        "summary": summary
+        "summary": summary,
+        "fear_and_greed": {
+            "value": 72,
+            "classification": "Greed",
+            "change_24h": 4,
+            "updated_at": now_iso
+        },
+        "futures_overview": {
+            "total_open_interest_usd": 48.5e9,
+            "total_open_interest_formatted": "$48.5B",
+            "open_interest_change_24h_pct": 2.4,
+            "total_24h_volume_usd": 128.5e9,
+            "total_24h_volume_formatted": "$128.5B",
+            "volume_change_24h_pct": 5.8,
+            "long_short_ratio": 1.12,
+            "long_short_change_24h_pct": 1.5,
+            "long_account_pct": 52.8,
+            "short_account_pct": 47.2,
+            "taker_buy_sell_ratio": 1.05
+        },
+        "liquidations_24h": {
+            "long_liquidations_usd": 85.4e6,
+            "long_liquidations_formatted": "$85.4M",
+            "short_liquidations_usd": 42.1e6,
+            "short_liquidations_formatted": "$42.1M",
+            "total_liquidations_usd": 127.5e6,
+            "imbalance_ratio": 2.03
+        },
+        "btc_dominance": {
+            "dominance_pct": 58.4,
+            "change_24h_pct": 0.35
+        },
+        "altcoin_season": {
+            "index": 38,
+            "classification": "Bitcoin Season"
+        },
+        "market_regime": {
+            "regime": "MOMENTUM_EXPANSION",
+            "confidence": 0.88
+        }
     }
 
 
@@ -70,11 +116,13 @@ async def get_market_ticker(symbol: str):
     # Fetch from provider registry
     asset = clean_sym.replace("USDT", "").replace("USDC", "").replace("-", "")
     insts = registry.get_instruments_for_asset(asset)
-    target_inst = insts[0] if insts else None
+    target_inst = next((i for i in insts if i.provider == Provider.BINANCE and i.market_type == MarketType.PERPETUAL), None)
+    if not target_inst:
+        target_inst = next((i for i in insts if i.provider == Provider.BINANCE), None)
 
     if not target_inst:
         from providers.base import CanonicalInstrument
-        from core.enums import Provider, MarketType, ContractType
+        from core.enums import MarketType, ContractType
         target_inst = CanonicalInstrument(
             instrument_id=f"BINANCE:{clean_sym}:PERPETUAL",
             canonical_symbol=clean_sym,
@@ -163,6 +211,8 @@ async def get_screener(
     return {
         "success": True,
         "total_count": len(data),
+        "count": len(data),
+        "items": data,
         "results": data
     }
 

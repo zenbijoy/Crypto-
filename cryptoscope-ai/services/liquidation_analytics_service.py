@@ -267,4 +267,21 @@ class LiquidationAnalyticsService:
         )
 
 
+    async def get_liquidations(self, symbol: str = "BTCUSDT", limit: int = 50) -> Dict[str, Any]:
+        summary = self.get_summary(canonical_symbol=f"{symbol}/PERP")
+        events_dicts = [e.dict() if hasattr(e, "dict") else e for e in summary.recent_events[:limit]]
+        return {
+            "canonical_symbol": summary.canonical_symbol,
+            "total_liquidations_24h_usd": summary.total_liquidations_24h_usd,
+            "long_liquidations_24h_usd": summary.long_liquidations_24h_usd,
+            "short_liquidations_24h_usd": summary.short_liquidations_24h_usd,
+            "long_short_ratio": summary.long_short_ratio,
+            "recent_events": events_dicts
+        }
+
+    async def get_liquidation_heatmap(self, symbol: str = "BTCUSDT") -> Dict[str, Any]:
+        heatmap = self.get_heatmap(canonical_symbol=f"{symbol}/PERP")
+        return heatmap.dict() if hasattr(heatmap, "dict") else heatmap
+
+
 liquidation_analytics_service = LiquidationAnalyticsService()

@@ -23,7 +23,7 @@
 | **FD-11** | `services/data_quality.py` | Quality Scoring | Static `data_quality_score = 98` | Quality Gate | **P1** | Replaced with dynamic `DataQualityService` evaluating freshness, completeness, and skew | **RESOLVED** |
 | **FD-12** | `services/prediction.py` | Prediction Invariants | Non-normalized probabilities or actionable NO_TRADE | Client Signals | **P0** | Enforced $\sum p_i = 1.0$ and `NO_TRADE` $\implies$ `actionable = False` | **RESOLVED** |
 | **FD-13** | `services/backtest.py` | Performance Metrics | Hardcoded `profit_factor = 2.45`, arbitrary Sortino | Research Engine | **P1** | Replaced with real gross profit/loss ratio and true downside deviation calculations | **RESOLVED** |
-| **FD-14** | `legacy/backend/main.py` | Entire Server | Competing backend server with duplicate endpoints | Deployment | **P0** | Quarantined to `legacy/backend/` with `NON_PRODUCTION.md` and excluded from production | **RESOLVED** |
+| **FD-14** | `legacy/backend/main.py` & `api/` | Entire Server | Competing backend server with duplicate endpoints & fake prediction stubs | Deployment | **P0** | Quarantined to `legacy/backend/` with `NON_PRODUCTION.md` and excluded from production | **RESOLVED** |
 | **FD-15** | `app/src/main/java` | `CryptoViewModel.kt` | UI state defaulting to realistic mock prices | Android Presentation | **P1** | Cleaned initial state to `UiState.Loading` / `Live Flow` waiting for real backend/exchange data | **RESOLVED** |
 
 ---

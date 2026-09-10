@@ -136,6 +136,7 @@ class MarketAggregator:
             "asset": asset.upper(),
             "venue_count": len(tickers),
             "sources": valid_sources,
+            "price": round(vwmp, 4),
             "consensus_price": {
                 "value": round(vwmp, 4),
                 "sources": valid_sources,
@@ -158,6 +159,30 @@ class MarketAggregator:
             "aggregated_long_short_ratio": avg_ls,
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
+
+    async def get_market_summary(self) -> List[Dict[str, Any]]:
+        """
+        Gathers summarized market data across primary Tier-1/2 assets.
+        """
+        core_assets = ["BTC", "ETH", "SOL", "DOGE", "BNB", "XRP", "ADA", "AVAX", "LINK", "SUI"]
+        summaries = []
+        for asset in core_assets:
+            try:
+                data = await self.aggregate_asset_market_data(asset)
+                if data.get("status") == "AVAILABLE":
+                    summaries.append({
+                        "symbol": f"{asset}USDT",
+                        "asset": asset,
+                        "price": data.get("price"),
+                        "sources": data.get("sources", []),
+                        "open_interest_usd": data.get("aggregated_open_interest_usd", {}).get("value"),
+                        "funding_rate": data.get("oi_weighted_funding_rate", {}).get("value"),
+                        "price_dispersion_bps": data.get("price_dispersion_bps", 0.0),
+                        "timestamp": data.get("timestamp")
+                    })
+            except Exception:
+                continue
+        return summaries
 
 
 market_aggregator = MarketAggregator()

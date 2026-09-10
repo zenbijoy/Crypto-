@@ -96,12 +96,23 @@ class AggregatedOrderBookService:
             all_asks.extend(ok_res.asks)
             venue_counts["OKX"] = len(ok_res.bids)
 
-        # Fallback to simulated L2 if completely empty
+        # If completely empty from venues, return empty book without synthetic fabrication
         if not all_bids or not all_asks:
-            ref_px = 78120.0
-            all_bids = [[ref_px - (i * 2.5), 1.2 + (i * 0.4)] for i in range(depth)]
-            all_asks = [[ref_px + (i * 2.5), 1.1 + (i * 0.45)] for i in range(depth)]
-            venue_counts = {"BINANCE": 10, "BYBIT": 5, "OKX": 5}
+            return AggregatedBookResponse(
+                canonical_symbol=canonical_symbol,
+                bids=[],
+                asks=[],
+                mid_price=0.0,
+                microprice=0.0,
+                spread=0.0,
+                spread_bps=0.0,
+                bid_depth_usd=0.0,
+                ask_depth_usd=0.0,
+                order_book_imbalance=0.0,
+                exchange_distribution={k: 0.0 for k in venue_counts},
+                quality_state="DATA_UNAVAILABLE",
+                updated_at=datetime.now(timezone.utc)
+            )
 
         # Sort aggregated book: bids descending, asks ascending
         sorted_bids = sorted(all_bids, key=lambda x: x[0], reverse=True)[:depth]
@@ -182,6 +193,10 @@ class AggregatedOrderBookService:
             timeframes=tf_dict,
             updated_at=now
         )
+
+
+    async def get_aggregated_depth(self, canonical_symbol: str = "BTC/USDT/PERP", depth: int = 20) -> AggregatedBookResponse:
+        return await self.get_aggregated_orderbook(canonical_symbol=canonical_symbol, depth=depth)
 
 
 aggregated_orderbook_service = AggregatedOrderBookService()

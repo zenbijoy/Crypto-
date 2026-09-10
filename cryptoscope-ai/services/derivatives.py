@@ -63,6 +63,50 @@ class DerivativesEngine:
             "short_liquidation_usd": short_liq_usd
         }
 
+    async def get_derivatives_summary(self, symbol: str) -> Dict[str, Any]:
+        from services.aggregation import market_aggregator
+        asset = symbol.upper().replace("USDT", "").replace("USDC", "").replace("-", "")
+        data = await market_aggregator.aggregate_asset_market_data(asset)
+        oi_val = (data.get("aggregated_open_interest_usd") or {}).get("value") or 0.0
+        fr_val = (data.get("oi_weighted_funding_rate") or {}).get("value") or 0.0001
+        
+        analysis = self.analyze_derivatives(
+            current_funding=fr_val,
+            funding_7d_history=[fr_val],
+            open_interest_usd=oi_val,
+            oi_change_pct=0.0,
+            price_change_pct=0.0,
+            long_liq_usd=0.0,
+            short_liq_usd=0.0
+        )
+        analysis["raw_market_data"] = data
+        return analysis
+
+    async def get_funding_rates(self, symbol: str) -> Dict[str, Any]:
+        from services.aggregation import market_aggregator
+        asset = symbol.upper().replace("USDT", "").replace("USDC", "").replace("-", "")
+        data = await market_aggregator.aggregate_asset_market_data(asset)
+        fr_val = (data.get("oi_weighted_funding_rate") or {}).get("value")
+        return {
+            "symbol": f"{asset}USDT",
+            "funding_rate": fr_val,
+            "funding_dispersion_bps": data.get("funding_dispersion_bps"),
+            "sources": data.get("sources", []),
+            "timestamp": data.get("timestamp")
+        }
+
+    async def get_open_interest(self, symbol: str) -> Dict[str, Any]:
+        from services.aggregation import market_aggregator
+        asset = symbol.upper().replace("USDT", "").replace("USDC", "").replace("-", "")
+        data = await market_aggregator.aggregate_asset_market_data(asset)
+        oi_val = (data.get("aggregated_open_interest_usd") or {}).get("value")
+        return {
+            "symbol": f"{asset}USDT",
+            "open_interest_usd": oi_val,
+            "sources": (data.get("aggregated_open_interest_usd") or {}).get("sources", []),
+            "timestamp": data.get("timestamp")
+        }
+
 
 derivatives_engine = DerivativesEngine("BTCUSDT")
 

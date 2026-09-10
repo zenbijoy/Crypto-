@@ -64,23 +64,33 @@ class AbstentionEngine:
         else:
             if p_up > 0.75:
                 final_signal = "STRONG LONG"
+                risk_decision = "ALLOW"
+                actionable = True
             elif p_up > 0.60:
                 final_signal = "LONG"
+                risk_decision = "ALLOW"
+                actionable = True
             elif p_down > 0.75:
                 final_signal = "STRONG SHORT"
+                risk_decision = "ALLOW"
+                actionable = True
             elif p_down > 0.60:
                 final_signal = "SHORT"
+                risk_decision = "ALLOW"
+                actionable = True
             else:
                 final_signal = "NEUTRAL / NO-TRADE"
-            
-            risk_decision = "ALLOW"
-            actionable = True
+                risk_decision = "ALLOW"
+                actionable = False
 
+        reason_str = ", ".join(abstention_reasons) if abstention_reasons else "Normal market conditions"
         return {
             "signal": final_signal,
             "actionable": actionable,
             "risk_decision": risk_decision,
+            "is_abstaining": should_abstain,
             "abstention_active": should_abstain,
+            "reason": reason_str,
             "abstention_reasons": abstention_reasons,
             "confidence": confidence_pct,
             "model_agreement": round(model_agreement, 3),

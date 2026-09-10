@@ -48,8 +48,8 @@ fun FearAndGreedScreen(viewModel: CryptoScopeViewModel) {
     val sentiment by viewModel.sentiment.collectAsState()
     val fearGreedHistory by viewModel.repository.fearGreedHistory.collectAsState()
 
-    val currentScore = fearGreedHistory.firstOrNull()?.value?.toIntOrNull() ?: sentiment.fearGreedIndex
-    val currentLabel = fearGreedHistory.firstOrNull()?.valueClassification ?: sentiment.fearGreedClassification
+    val currentScore = fearGreedHistory.firstOrNull()?.value?.toIntOrNull() ?: sentiment.fearGreedScore
+    val currentLabel = fearGreedHistory.firstOrNull()?.valueClassification ?: sentiment.fearGreedLabel
 
     var selectedTimeline by remember { mutableStateOf("All") }
 

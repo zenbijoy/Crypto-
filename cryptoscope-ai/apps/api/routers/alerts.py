@@ -55,17 +55,19 @@ async def get_watchlist(
     result = await db.execute(stmt)
     items = result.scalars().all()
 
+    formatted_items = [
+        {
+            "id": item.id,
+            "symbol": item.symbol,
+            "notes": item.notes,
+            "created_at": item.created_at.isoformat() if item.created_at else None
+        }
+        for item in items
+    ]
     return {
         "success": True,
-        "data": [
-            {
-                "id": item.id,
-                "symbol": item.symbol,
-                "notes": item.notes,
-                "created_at": item.created_at.isoformat() if item.created_at else None
-            }
-            for item in items
-        ]
+        "data": formatted_items,
+        "items": formatted_items
     }
 
 
@@ -118,7 +120,7 @@ async def get_alerts(
     db: AsyncSession = Depends(get_db)
 ):
     stmt = select(AlertRuleModel).where(
-        (AlertRuleModel.user_id == user.id) | (AlertRuleModel.user_id == None)
+        AlertRuleModel.user_id == user.id
     )
     result = await db.execute(stmt)
     alerts = result.scalars().all()

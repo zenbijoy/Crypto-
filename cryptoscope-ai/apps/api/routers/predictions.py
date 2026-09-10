@@ -21,7 +21,7 @@ prediction_engine = PredictionEngine()
 @router.get("/{asset}", summary="Probabilistic AI Forecast for Asset")
 async def get_prediction(
     asset: str,
-    horizon: str = Query("1h", regex="^(15m|1h|4h|24h)$")
+    horizon: str = Query("1h", pattern="^(15m|1h|4h|24h)$")
 ):
     clean = asset.upper().replace("USDT", "").replace("USDC", "").replace("USD", "")
     symbol = f"{clean}USDT"
@@ -34,17 +34,21 @@ async def get_prediction(
 
     try:
         # Fetch real candles for the asset
-        inst = registry.get_instrument(f"BINANCE:{symbol}:PERPETUAL")
+        inst = registry.get_instrument_by_id(f"BINANCE:{symbol}:PERPETUAL")
         if not inst:
-            inst = registry.get_instrument(f"BINANCE:{symbol}:SPOT")
+            inst = registry.get_instrument_by_id(f"BINANCE:{symbol}:SPOT")
 
         candles = []
         if inst and hasattr(registry, "binance"):
-            raw_candles = await registry.binance.fetch_candles(inst, resolution=horizon, limit=30)
+            raw_candles = await registry.binance.fetch_ohlcv(inst, timeframe=horizon, limit=30)
             candles = [c.to_dict() if hasattr(c, "to_dict") else c for c in raw_candles]
 
         mkt = await market_aggregator.aggregate_asset_market_data(clean)
-        current_price = mkt.get("price") or (candles[-1]["close"] if candles else None)
+        current_price = mkt.get("price")
+        if not current_price and isinstance(mkt.get("consensus_price"), dict):
+            current_price = mkt["consensus_price"].get("value")
+        if not current_price and candles:
+            current_price = candles[-1]["close"]
 
         forecast = prediction_engine.generate_forecast(
             symbol=symbol,

@@ -66,18 +66,38 @@ async def health_ready(response: Response):
 async def system_health():
     """Detailed architectural health overview."""
     now_iso = datetime.now(timezone.utc).isoformat()
+
+    db_status = "HEALTHY"
+    try:
+        from core.database import async_session_factory
+        from sqlalchemy import text
+        async with async_session_factory() as session:
+            await session.execute(text("SELECT 1"))
+    except Exception:
+        db_status = "DEGRADED"
+
+    pred_status = "HEALTHY"
+    try:
+        from services.prediction import prediction_engine
+        if not prediction_engine or not hasattr(prediction_engine, "generate_forecast"):
+            pred_status = "DEGRADED"
+    except Exception:
+        pred_status = "UNAVAILABLE"
+
+    overall_status = "HEALTHY" if (db_status == "HEALTHY" and pred_status == "HEALTHY") else "DEGRADED"
+
     return {
         "success": True,
         "data": {
-            "status": "HEALTHY",
+            "status": overall_status,
             "version": "2.4.0",
             "environment": settings.ENVIRONMENT,
             "components": {
                 "api": "HEALTHY",
-                "database": "HEALTHY",
+                "database": db_status,
                 "redis": "HEALTHY" if redis_client.is_connected() else "FALLBACK",
                 "feature_store": "HEALTHY",
-                "prediction_engine": "HEALTHY"
+                "prediction_engine": pred_status
             },
             "timestamp": now_iso
         },

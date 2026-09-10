@@ -62,7 +62,7 @@ fun MarketsScreen(viewModel: CryptoScopeViewModel) {
             if (searchQuery.isBlank()) true
             else it.asset.contains(searchQuery, ignoreCase = true) || it.pair.contains(searchQuery, ignoreCase = true)
         }.let { list ->
-            if (sortByChange) list.sortedByDescending { it.change24hPct }
+            if (sortByChange) list.sortedByDescending { it.change24h }
             else list
         }
     }
@@ -347,7 +347,7 @@ fun MarketsScreen(viewModel: CryptoScopeViewModel) {
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Text(
-                                    text = "${if (isPositive) "+" else ""}${String.format(java.util.Locale.US, "%.2f", market.change24hPct)}%",
+                                    text = "${if (isPositive) "+" else ""}${String.format(java.util.Locale.US, "%.2f", market.change24h)}%",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White,

@@ -63,6 +63,27 @@ class CanonicalCandle:
     taker_buy_base: float = 0.0
     is_closed: bool = True
 
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "provider": self.provider.value if hasattr(self.provider, "value") else str(self.provider),
+            "instrument_id": self.instrument_id,
+            "timeframe": self.timeframe,
+            "open_time": self.open_time.isoformat() if hasattr(self.open_time, "isoformat") else str(self.open_time),
+            "close_time": self.close_time.isoformat() if hasattr(self.close_time, "isoformat") else str(self.close_time),
+            "open": self.open,
+            "high": self.high,
+            "low": self.low,
+            "close": self.close,
+            "volume_base": self.volume_base,
+            "volume_quote": self.volume_quote,
+            "trade_count": self.trade_count,
+            "taker_buy_base": self.taker_buy_base,
+            "is_closed": self.is_closed,
+        }
+
+    def __getitem__(self, key: str) -> Any:
+        return self.to_dict()[key]
+
 @dataclass
 class CanonicalTrade:
     provider: Provider

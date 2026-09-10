@@ -1,1 +1,4 @@
-{}
+{
+  "tests/test_deep_learning_quant_stack.py": true,
+  "tests/test_mlops_pipeline.py": true
+}

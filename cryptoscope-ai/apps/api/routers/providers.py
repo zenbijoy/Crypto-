@@ -37,7 +37,7 @@ async def get_providers_status():
         # Check actual ping or ticker latency
         start = time.time()
         try:
-            inst = registry.get_instrument("BINANCE:BTCUSDT:PERPETUAL")
+            inst = registry.get_instrument_by_id("BINANCE:BTCUSDT:PERPETUAL")
             if inst:
                 await registry.binance.fetch_ticker(inst)
                 latency = round((time.time() - start) * 1000, 2)
@@ -68,21 +68,49 @@ async def get_providers_status():
         })
 
     # 2. Bybit
+    bybit_configured = hasattr(registry, "bybit") and registry.bybit is not None
+    bybit_status = "NOT_CONFIGURED"
+    bybit_lat = None
+    if bybit_configured:
+        start_b = time.time()
+        try:
+            inst_by = registry.get_instrument_by_id("BYBIT:BTCUSDT:PERPETUAL")
+            if inst_by:
+                await registry.bybit.fetch_ticker(inst_by)
+            bybit_lat = round((time.time() - start_b) * 1000, 2)
+            bybit_status = "HEALTHY" if bybit_lat < 1000 else "DEGRADED"
+        except Exception:
+            bybit_status = "DOWN"
+
     providers_info.append({
         "provider": "BYBIT",
         "market_type": "PERPETUAL",
-        "status": "NOT_CONFIGURED",
-        "latency_ms": None,
+        "status": bybit_status,
+        "latency_ms": bybit_lat,
         "is_primary": False,
         "updated_at": datetime.now(timezone.utc).isoformat()
     })
 
     # 3. OKX
+    okx_configured = hasattr(registry, "okx") and registry.okx is not None
+    okx_status = "NOT_CONFIGURED"
+    okx_lat = None
+    if okx_configured:
+        start_o = time.time()
+        try:
+            inst_ok = registry.get_instrument_by_id("OKX:BTCUSDT:PERPETUAL")
+            if inst_ok:
+                await registry.okx.fetch_ticker(inst_ok)
+            okx_lat = round((time.time() - start_o) * 1000, 2)
+            okx_status = "HEALTHY" if okx_lat < 1000 else "DEGRADED"
+        except Exception:
+            okx_status = "DOWN"
+
     providers_info.append({
         "provider": "OKX",
         "market_type": "PERPETUAL",
-        "status": "NOT_CONFIGURED",
-        "latency_ms": None,
+        "status": okx_status,
+        "latency_ms": okx_lat,
         "is_primary": False,
         "updated_at": datetime.now(timezone.utc).isoformat()
     })

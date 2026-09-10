@@ -460,10 +460,11 @@ fun SignInScreen(
                                     }
                                 } else {
                                     if (email.isBlank() || password.isBlank()) {
-                                        // Provide a fast default for testing convenience if user just presses Log In
-                                        viewModel.signInSuccess(if (email.isNotBlank()) email else "trader@cryptoscope.ai")
+                                        errorMessage = "Please enter both email and password."
+                                    } else if (!email.contains("@") || !email.contains(".")) {
+                                        errorMessage = "Please enter a valid email address."
                                     } else {
-                                        viewModel.signInSuccess(email)
+                                        viewModel.signInSuccess(email.trim())
                                     }
                                 }
                             }

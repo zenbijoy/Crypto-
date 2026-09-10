@@ -115,11 +115,19 @@ class PredictionEngine:
         q75 = max(quantiles["p75"], quantiles["p50"])
         q90 = max(quantiles["p90"], quantiles["p75"], quantiles["p50"])
 
+        # Direction-aware edge calculation (avoid treating negative expected return as positive edge)
+        if direction == Direction.UP.value:
+            directional_edge = max(0.0, expected_return_pct)
+        elif direction == Direction.DOWN.value:
+            directional_edge = max(0.0, -expected_return_pct)
+        else:
+            directional_edge = 0.0
+
         # Risk Engine evaluation (Independent Veto Authority)
         risk_res = self.risk_engine.evaluate_risk(
             model_confidence=abstention_eval["confidence"],
             model_agreement=int(model_agreement * 100) if model_agreement <= 1.0 else int(model_agreement),
-            expected_edge_pct=abs(expected_return_pct),
+            expected_edge_pct=directional_edge,
             data_quality_score=data_quality_score,
             spread_bps=spread_bps,
             ws_latency_ms=45.0,
@@ -128,7 +136,8 @@ class PredictionEngine:
         risk_decision = risk_res["decision"]
 
         # Signal determination with risk engine veto
-        if risk_decision == "REJECT" or abstention_eval["is_abstaining"]:
+        is_abstaining = abstention_eval.get("is_abstaining") or abstention_eval.get("abstention_active", False)
+        if risk_decision == "REJECT" or is_abstaining:
             signal = "NEUTRAL / NO-TRADE"
         elif direction == Direction.UP.value:
             signal = "STRONG LONG" if p_up > 0.60 else "LONG"
@@ -175,13 +184,19 @@ class PredictionEngine:
             "price_quantiles": quantiles_dict,
             "fan_chart_quantiles": quantiles_dict,
             "confidence": abstention_eval["confidence"],
+            "confidence_pct": float(abstention_eval["confidence"]),
             "calibrated_confidence": abstention_eval["confidence"],
             "model_agreement_pct": model_agreement,
+            "uncertainty_score": round(1.0 - (model_agreement if model_agreement <= 1.0 else model_agreement / 100.0), 3),
+            "forecast_price": round(q50, 2),
+            "should_abstain": bool(is_abstaining or risk_decision == "REJECT"),
+            "abstention_reason": risk_res["reason"] if risk_decision == "REJECT" else (abstention_eval.get("reason") or (", ".join(abstention_eval.get("abstention_reasons", [])) if abstention_eval.get("abstention_reasons") else None)),
             "market_regime": regime,
             "data_quality_score": data_quality_score,
             "risk_decision": risk_decision,
             "signal": signal,
-            "signal_reason": risk_res["reason"] if risk_decision == "REJECT" else abstention_eval["reason"],
+            "actionable": (signal != "NEUTRAL / NO-TRADE") and (risk_decision != "REJECT"),
+            "signal_reason": risk_res["reason"] if risk_decision == "REJECT" else abstention_eval.get("reason", ", ".join(abstention_eval.get("abstention_reasons", [])) or "Normal market conditions"),
             "risk_level": risk_res["risk_level"],
             "model_info": {
                 "model_name": "CryptoScope Heuristic Ensemble Baseline",
@@ -211,6 +226,11 @@ class PredictionEngine:
             "current_price": current_price,
             "expected_return_pct": 0.0,
             "direction": Direction.SIDEWAYS.value,
+            "confidence_pct": 0.0,
+            "forecast_price": current_price,
+            "uncertainty_score": 1.0,
+            "should_abstain": True,
+            "abstention_reason": reason,
             "probabilities": {"up": 0.3333, "down": 0.3333, "sideways": 0.3334},
             "fan_chart_quantiles": {
                 "p10": current_price,
