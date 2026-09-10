@@ -32,10 +32,11 @@ fun ChartTerminalScreen(viewModel: CryptoScopeViewModel) {
     val textMutedColor = if (isDark) DarkTextMuted else LightTextMuted
 
     val livePrices by viewModel.repository.livePrices.collectAsState()
+    val liveKlines by viewModel.repository.liveKlines.collectAsState()
     val prediction = remember(livePrices, uiState.selectedAsset, uiState.selectedHorizon) {
         viewModel.repository.getPrediction(uiState.selectedAsset, uiState.selectedHorizon)
     }
-    val candles = remember(uiState.selectedAsset) {
+    val candles = remember(livePrices, liveKlines, uiState.selectedAsset) {
         viewModel.repository.getCandles(uiState.selectedAsset, 32)
     }
 

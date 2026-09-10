@@ -7,6 +7,7 @@ import com.example.core.data.CryptoScopeRepository
 import com.example.core.database.AlertRuleEntity
 import com.example.core.database.CryptoScopeDatabase
 import com.example.core.database.PaperPositionEntity
+import com.example.core.database.PriceThresholdEntity
 import com.example.core.model.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -38,6 +39,8 @@ enum class ScreenRoute {
     EDIT_PROFILE,
     NEWS_DETAIL,
     CREATE_ALERT,
+    PRICE_THRESHOLDS,
+    WATCHLIST,
     ALERT_DETAIL,
     PAPER_DASHBOARD,
     PAPER_ORDER_TICKET,
@@ -101,7 +104,10 @@ data class UiState(
     val selectedWatchlistTab: String = "Default",
     val selectedMarketFilterTab: String = "Derivatives",
     val selectedAlertFilterTab: String = "Active",
+    val selectedLanguage: String = "English",
     val watchlist: Set<String> = setOf("BTC", "ETH", "SOL", "AVAX"),
+    val floatingPriceAsset: String = "BTC",
+    val isFloatingPriceVisible: Boolean = true,
     val paperEquity: Double = 10842.60,
     val paperTotalPnl: Double = 842.60,
     val paperTotalPnlPct: Double = 8.43
@@ -113,6 +119,31 @@ class CryptoScopeViewModel(application: Application) : AndroidViewModel(applicat
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
+
+    val liveMarkets: StateFlow<List<MarketItem>> = combine(
+        repository.livePrices,
+        repository.liveTickers,
+        repository.liveFundingRates,
+        repository.liveOpenInterests
+    ) { _, _, _, _ ->
+        repository.getMarkets()
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), repository.getMarkets())
+
+    val marketOverview = repository.marketOverview
+    val liveTickers = repository.liveTickers
+    val fearGreedHistory = repository.fearGreedHistory
+    val contractRadarAlerts = repository.contractRadarAlerts
+    val backendNews = repository.backendNews
+
+    fun getMarkets(): List<MarketItem> = repository.getMarkets()
+    fun getPrediction(asset: AssetSymbol = _uiState.value.selectedAsset, horizon: Horizon = _uiState.value.selectedHorizon): PredictionForecast = repository.getPrediction(asset, horizon)
+    fun getDerivatives(asset: AssetSymbol = _uiState.value.selectedAsset): DerivativesData = repository.getDerivatives(asset)
+    fun getOrderBook(asset: AssetSymbol = _uiState.value.selectedAsset): OrderBookData = repository.getOrderBook(asset)
+    fun getSentiment(asset: AssetSymbol = _uiState.value.selectedAsset): SentimentData = repository.getSentiment(asset)
+    fun getLiquidations(asset: AssetSymbol = _uiState.value.selectedAsset): LiquidationData = repository.getLiquidations(asset)
+    fun getMacro(): MacroData = repository.getMacro()
+    fun getCandles(asset: AssetSymbol = _uiState.value.selectedAsset): List<CandleStick> = repository.getCandles(asset)
+    fun getNextFundingCountdown(symbol: String = _uiState.value.selectedAsset.code): String = repository.getNextFundingCountdown(symbol)
 
     // Backstack for natural back navigation
     private val navigationBackstack = mutableListOf<ScreenRoute>()
@@ -185,6 +216,44 @@ class CryptoScopeViewModel(application: Application) : AndroidViewModel(applicat
                             requireExpectedEdge = true,
                             requireRiskEngineAllow = true,
                             status = "PAUSED"
+                        )
+                    )
+                }
+            }
+        }
+
+        // Seed initial price thresholds if Room is empty
+        viewModelScope.launch {
+            repository.getAllPriceThresholds().collect { thresholds ->
+                if (thresholds.isEmpty()) {
+                    repository.savePriceThreshold(
+                        PriceThresholdEntity(
+                            id = "threshold-btc-115k",
+                            assetSymbol = "BTC",
+                            targetPrice = 115000.0,
+                            condition = "ABOVE",
+                            note = "Key institutional resistance breakout target",
+                            isActive = true
+                        )
+                    )
+                    repository.savePriceThreshold(
+                        PriceThresholdEntity(
+                            id = "threshold-eth-4200",
+                            assetSymbol = "ETH",
+                            targetPrice = 4200.0,
+                            condition = "BELOW",
+                            note = "Major demand zone support level",
+                            isActive = true
+                        )
+                    )
+                    repository.savePriceThreshold(
+                        PriceThresholdEntity(
+                            id = "threshold-sol-220",
+                            assetSymbol = "SOL",
+                            targetPrice = 220.0,
+                            condition = "ABOVE",
+                            note = "Momentum expansion continuation level",
+                            isActive = true
                         )
                     )
                 }
@@ -320,6 +389,10 @@ class CryptoScopeViewModel(application: Application) : AndroidViewModel(applicat
         _uiState.update { it.copy(colorPreferenceGreenPositive = !it.colorPreferenceGreenPositive) }
     }
 
+    fun setLanguage(language: String) {
+        _uiState.update { it.copy(selectedLanguage = language) }
+    }
+
     fun openAlertDetail(alertId: String) {
         _uiState.update { it.copy(activeAlertDetailId = alertId) }
         navigateTo(ScreenRoute.ALERT_DETAIL)
@@ -365,6 +438,15 @@ class CryptoScopeViewModel(application: Application) : AndroidViewModel(applicat
     fun isFavorite(symbol: String): Boolean {
         val clean = symbol.replace("USDT", "").replace("/", "")
         return _uiState.value.watchlist.contains(clean)
+    }
+
+    fun setFloatingPriceAsset(symbol: String) {
+        val clean = symbol.replace("USDT", "").replace("/", "")
+        _uiState.update { it.copy(floatingPriceAsset = clean, isFloatingPriceVisible = true) }
+    }
+
+    fun toggleFloatingPriceVisible() {
+        _uiState.update { it.copy(isFloatingPriceVisible = !it.isFloatingPriceVisible) }
     }
 
     // Place a paper trade order
@@ -455,6 +537,39 @@ class CryptoScopeViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch {
             repository.closePaperPosition(posId)
             navigateBack()
+        }
+    }
+
+    // Price Threshold Form & CRUD Actions
+    fun savePriceThreshold(
+        assetSymbol: String,
+        targetPrice: Double,
+        condition: String,
+        note: String?
+    ) {
+        viewModelScope.launch {
+            val entity = PriceThresholdEntity(
+                id = "thresh-${System.currentTimeMillis()}",
+                assetSymbol = assetSymbol.uppercase().trim(),
+                targetPrice = targetPrice,
+                condition = condition,
+                note = note?.takeIf { it.isNotBlank() },
+                isActive = true,
+                isTriggered = false
+            )
+            repository.savePriceThreshold(entity)
+        }
+    }
+
+    fun togglePriceThresholdActive(thresholdId: String, currentActive: Boolean) {
+        viewModelScope.launch {
+            repository.togglePriceThresholdActive(thresholdId, !currentActive)
+        }
+    }
+
+    fun deletePriceThreshold(thresholdId: String) {
+        viewModelScope.launch {
+            repository.deletePriceThreshold(thresholdId)
         }
     }
 

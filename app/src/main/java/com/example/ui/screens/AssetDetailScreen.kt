@@ -44,10 +44,23 @@ fun AssetDetailScreen(viewModel: CryptoScopeViewModel) {
     val textMutedColor = if (isDark) DarkTextMuted else LightTextMuted
 
     val livePrices by viewModel.repository.livePrices.collectAsState()
-    val symbol = uiState.selectedAsset.name
-    val price = livePrices[symbol] ?: if (symbol == "BTC") 77190.0 else 2413.27
+    val liveTickers by viewModel.liveTickers.collectAsState()
+    val liveFundingRates by viewModel.repository.liveFundingRates.collectAsState()
+    val liveOpenInterests by viewModel.repository.liveOpenInterests.collectAsState()
 
-    var isFavorite by remember { mutableStateOf(false) }
+    val symbol = uiState.selectedAsset.name
+    val ticker = liveTickers[symbol]
+    val price = livePrices[symbol] ?: ticker?.lastPrice?.toDoubleOrNull() ?: if (symbol == "BTC") 78500.0 else 2415.0
+    val change24h = ticker?.priceChangePercent?.toDoubleOrNull() ?: -1.85
+    val high24 = ticker?.highPrice?.toDoubleOrNull() ?: (price * 1.025)
+    val low24 = ticker?.lowPrice?.toDoubleOrNull() ?: (price * 0.975)
+    val volume24h = ticker?.volume?.toDoubleOrNull() ?: 24500.0
+    val volumeQuote = ticker?.quoteVolume?.toDoubleOrNull() ?: (volume24h * price)
+    val fundingRate = liveFundingRates[symbol] ?: 0.0001
+    val openInterestUsd = liveOpenInterests[symbol] ?: (volumeQuote * 0.45)
+    val isPositive = change24h >= 0
+
+    val isFavorite = uiState.watchlist.contains(symbol)
     var selectedTimeframe by remember { mutableStateOf("1H") }
     var spotSubTab by remember { mutableStateOf("Markets") }
 
@@ -89,7 +102,7 @@ fun AssetDetailScreen(viewModel: CryptoScopeViewModel) {
                     }
                 },
                 actions = {
-                    IconButton(onClick = { isFavorite = !isFavorite }) {
+                    IconButton(onClick = { viewModel.toggleWatchlist(symbol) }) {
                         Icon(
                             imageVector = if (isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
                             contentDescription = "Favorite",
@@ -185,8 +198,13 @@ fun AssetDetailScreen(viewModel: CryptoScopeViewModel) {
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Column {
+                                        val formattedPrice = when {
+                                            price >= 100 -> String.format(java.util.Locale.US, "%,.2f", price)
+                                            price >= 1 -> String.format(java.util.Locale.US, "%.3f", price)
+                                            else -> String.format(java.util.Locale.US, "%.4f", price)
+                                        }
                                         Text(
-                                            text = "$${"%,.2f".format(price)}",
+                                            text = "$$formattedPrice",
                                             fontSize = 28.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = textColor
@@ -194,13 +212,13 @@ fun AssetDetailScreen(viewModel: CryptoScopeViewModel) {
                                         Spacer(modifier = Modifier.height(2.dp))
                                         Surface(
                                             shape = RoundedCornerShape(4.dp),
-                                            color = SemanticNegativeLight
+                                            color = if (isPositive) SemanticPositiveLight else SemanticNegativeLight
                                         ) {
                                             Text(
-                                                text = "-2.32%",
+                                                text = "${if (isPositive) "+" else ""}${String.format(java.util.Locale.US, "%.2f", change24h)}%",
                                                 fontSize = 12.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                color = SemanticNegative,
+                                                color = if (isPositive) SemanticPositive else SemanticNegative,
                                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                             )
                                         }
@@ -222,15 +240,15 @@ fun AssetDetailScreen(viewModel: CryptoScopeViewModel) {
                                 Spacer(modifier = Modifier.height(14.dp))
 
                                 // 24H High / Low Range Indicator Bar
-                                val high24 = price * 1.032
-                                val low24 = price * 0.968
+                                val range = (high24 - low24).coerceAtLeast(1e-6)
+                                val progress = ((price - low24) / range).coerceIn(0.05, 0.95).toFloat()
                                 Column {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Text("24h Low: $${"%,.2f".format(low24)}", fontSize = 11.sp, color = textMutedColor)
-                                        Text("24h High: $${"%,.2f".format(high24)}", fontSize = 11.sp, color = textMutedColor)
+                                        Text("24h Low: $${String.format(java.util.Locale.US, "%,.2f", low24)}", fontSize = 11.sp, color = textMutedColor)
+                                        Text("24h High: $${String.format(java.util.Locale.US, "%,.2f", high24)}", fontSize = 11.sp, color = textMutedColor)
                                     }
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Box(
@@ -242,7 +260,7 @@ fun AssetDetailScreen(viewModel: CryptoScopeViewModel) {
                                     ) {
                                         Box(
                                             modifier = Modifier
-                                                .fillMaxWidth(0.55f)
+                                                .fillMaxWidth(progress)
                                                 .height(4.dp)
                                                 .clip(CircleShape)
                                                 .background(BrandBlue)
@@ -252,31 +270,34 @@ fun AssetDetailScreen(viewModel: CryptoScopeViewModel) {
 
                                 Spacer(modifier = Modifier.height(14.dp))
 
-                                // 6-Grid Stats (High, Low, Ampl, Volume, 24h Vol, Turnover)
+                                // 6-Grid Stats (High, Low, Ampl, Volume, 24h Vol, OI)
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Column {
                                         Text("High (24H)", fontSize = 10.sp, color = textMutedColor)
-                                        Text("$${"%,.2f".format(high24)}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = textColor)
+                                        Text("$${String.format(java.util.Locale.US, "%,.2f", high24)}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = textColor)
                                         Spacer(modifier = Modifier.height(6.dp))
                                         Text("Volume (24H)", fontSize = 10.sp, color = textMutedColor)
-                                        Text("723,669", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = textColor)
+                                        Text(String.format(java.util.Locale.US, "%,.0f", volume24h), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = textColor)
                                     }
                                     Column {
                                         Text("Low (24H)", fontSize = 10.sp, color = textMutedColor)
-                                        Text("$${"%,.2f".format(low24)}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = textColor)
+                                        Text("$${String.format(java.util.Locale.US, "%,.2f", low24)}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = textColor)
                                         Spacer(modifier = Modifier.height(6.dp))
                                         Text("24h Vol (USD)", fontSize = 10.sp, color = textMutedColor)
-                                        Text("$1.75B", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = textColor)
+                                        val volQuoteFormatted = if (volumeQuote >= 1e9) String.format(java.util.Locale.US, "$%.2fB", volumeQuote / 1e9) else String.format(java.util.Locale.US, "$%.1fM", volumeQuote / 1e6)
+                                        Text(volQuoteFormatted, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = textColor)
                                     }
                                     Column {
                                         Text("Ampl (24H)", fontSize = 10.sp, color = textMutedColor)
-                                        Text("-2.32%", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = SemanticNegative)
+                                        val ampl = ((high24 - low24) / low24.coerceAtLeast(1.0)) * 100.0
+                                        Text("${String.format(java.util.Locale.US, "%.2f", ampl)}%", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = textColor)
                                         Spacer(modifier = Modifier.height(6.dp))
-                                        Text("Turnover (24H)", fontSize = 10.sp, color = textMutedColor)
-                                        Text("0.6%", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = textColor)
+                                        Text("Funding Rate", fontSize = 10.sp, color = textMutedColor)
+                                        val frText = "${String.format(java.util.Locale.US, "%+.4f", fundingRate * 100)}%"
+                                        Text(frText, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (fundingRate >= 0) SemanticPositive else SemanticNegative)
                                     }
                                 }
                             }

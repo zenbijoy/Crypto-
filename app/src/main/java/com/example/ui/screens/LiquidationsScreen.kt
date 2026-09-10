@@ -54,6 +54,15 @@ fun LiquidationsScreen(viewModel: CryptoScopeViewModel) {
     var selectedPalette by remember { mutableStateOf("Viridis") }
     var liquidityThreshold by remember { mutableStateOf(1.0f) }
 
+    val overview by viewModel.repository.marketOverview.collectAsState()
+    val radarAlerts by viewModel.repository.contractRadarAlerts.collectAsState()
+    val livePrices by viewModel.repository.livePrices.collectAsState()
+
+    val btcPrice = livePrices["BTC"] ?: livePrices["BTCUSDT"] ?: 68500.0
+    val longLiqFormatted = overview?.liquidations24h?.longLiquidationsFormatted ?: "$120.59M"
+    val shortLiqFormatted = overview?.liquidations24h?.shortLiquidationsFormatted ?: "$71.53M"
+    val radarCount = radarAlerts.size.takeIf { it > 0 } ?: 6
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -218,7 +227,7 @@ fun LiquidationsScreen(viewModel: CryptoScopeViewModel) {
                     ) {
                         Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(SemanticNegative))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Radar: 6 Liqs", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SemanticNegative)
+                        Text("Radar: $radarCount Liqs", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SemanticNegative)
                     }
                 }
             }
@@ -239,15 +248,15 @@ fun LiquidationsScreen(viewModel: CryptoScopeViewModel) {
                     Column {
                         Text("Total Long Liquidation", fontSize = 11.sp, color = textMutedColor)
                         Spacer(modifier = Modifier.height(2.dp))
-                        Text("$120.59M", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = SemanticNegative)
-                        Text("72.4% below $77,500", fontSize = 10.sp, color = textMutedColor)
+                        Text(longLiqFormatted, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = SemanticNegative)
+                        Text("Below $${String.format(java.util.Locale.US, "%,.0f", btcPrice * 0.98)}", fontSize = 10.sp, color = textMutedColor)
                     }
                     Box(modifier = Modifier.width(1.dp).height(44.dp).background(borderColor))
                     Column(horizontalAlignment = Alignment.End) {
                         Text("Total Short Liquidation", fontSize = 11.sp, color = textMutedColor)
                         Spacer(modifier = Modifier.height(2.dp))
-                        Text("$71.53M", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = SemanticPositive)
-                        Text("27.6% above $78,000", fontSize = 10.sp, color = textMutedColor)
+                        Text(shortLiqFormatted, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = SemanticPositive)
+                        Text("Above $${String.format(java.util.Locale.US, "%,.0f", btcPrice * 1.02)}", fontSize = 10.sp, color = textMutedColor)
                     }
                 }
             }

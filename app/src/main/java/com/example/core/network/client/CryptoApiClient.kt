@@ -3,6 +3,7 @@ package com.example.core.network.client
 import com.example.BuildConfig
 import com.example.core.network.api.CryptoFuturesApiService
 import com.example.core.network.api.CryptoScopeBackendApiService
+import com.example.core.network.api.ExchangePriceApiService
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import okhttp3.Interceptor
@@ -98,6 +99,9 @@ object CryptoApiClient {
             .build()
     }
 
+    // Alias for backwards compatibility
+    val retrofit: Retrofit get() = backendRetrofit
+
     /**
      * Canonical backend service used by all production app screens
      */
@@ -106,16 +110,33 @@ object CryptoApiClient {
     }
 
     /**
+     * Real-time exchange price data service targeting configured exchange gateway
+     */
+    val exchangePriceApiService: ExchangePriceApiService by lazy {
+        backendRetrofit.create(ExchangePriceApiService::class.java)
+    }
+
+    /**
      * Isolated direct provider service (disabled in production / release per Phase 15)
      */
     val futuresApiService: CryptoFuturesApiService by lazy {
-        val baseUrl = if (RAW_MARKET_DEBUG) PUBLIC_BINANCE_URL else BACKEND_BASE_URL
         Retrofit.Builder()
-            .baseUrl(baseUrl)
+            .baseUrl(PUBLIC_BINANCE_URL)
             .client(okHttpClient)
             .addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()
             .create(CryptoFuturesApiService::class.java)
+    }
+
+    const val ALTERNATIVE_ME_URL = "https://api.alternative.me/"
+
+    val alternativeMeApiService: com.example.core.network.api.AlternativeMeApiService by lazy {
+        Retrofit.Builder()
+            .baseUrl(ALTERNATIVE_ME_URL)
+            .client(okHttpClient)
+            .addConverterFactory(MoshiConverterFactory.create(moshi))
+            .build()
+            .create(com.example.core.network.api.AlternativeMeApiService::class.java)
     }
 
     fun createBackendService(baseUrl: String = BACKEND_BASE_URL): CryptoScopeBackendApiService {

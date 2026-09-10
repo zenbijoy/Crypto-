@@ -3,6 +3,7 @@ package com.example.ui.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -10,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -164,6 +166,7 @@ fun SettingsScreen(viewModel: CryptoScopeViewModel) {
     var notificationsEnabled by remember { mutableStateOf(true) }
     var soundEnabled by remember { mutableStateOf(true) }
     var highPrecisionCharts by remember { mutableStateOf(true) }
+    var showLanguageDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -257,7 +260,51 @@ fun SettingsScreen(viewModel: CryptoScopeViewModel) {
                     }
                     Switch(checked = highPrecisionCharts, onCheckedChange = { highPrecisionCharts = it })
                 }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                HorizontalDivider(color = borderColor, thickness = 0.5.dp)
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Language selection row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showLanguageDialog = true }
+                        .padding(vertical = 4.dp)
+                        .testTag("settings_language_changer_button"),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Display Language", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = textColor)
+                        Text("Active: ${uiState.selectedLanguage}", fontSize = 11.sp, color = textMutedColor)
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(uiState.selectedLanguage, fontSize = 13.sp, color = BrandBlue, fontWeight = FontWeight.SemiBold)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = "Change Language",
+                            tint = textMutedColor,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
             }
+        }
+
+        if (showLanguageDialog) {
+            LanguageSelectionDialog(
+                currentLanguage = uiState.selectedLanguage,
+                onLanguageSelected = { lang ->
+                    viewModel.setLanguage(lang)
+                    showLanguageDialog = false
+                },
+                onDismiss = { showLanguageDialog = false },
+                isDark = isDark
+            )
         }
 
         Spacer(modifier = Modifier.height(30.dp))

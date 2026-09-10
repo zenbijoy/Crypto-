@@ -15,9 +15,21 @@ from services.aggregated_orderbook_service import aggregated_orderbook_service
 router = APIRouter(prefix="/api/v1/orderbook", tags=["Orderbook"])
 
 
-@router.get("/{symbol}")
 @router.get("")
-async def get_orderbook(symbol: str = Query("BTCUSDT"), depth: int = Query(50)):
+async def get_orderbook_query(symbol: str = Query("BTCUSDT"), depth: int = Query(50)):
+    """Returns orderbook depth and microstructure imbalance metrics."""
+    data = await orderbook_engine.get_depth(symbol.upper(), depth=depth)
+    return {
+        "success": True,
+        "symbol": symbol.upper(),
+        "depth": depth,
+        "data": data,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
+
+@router.get("/{symbol}")
+async def get_orderbook(symbol: str = "BTCUSDT", depth: int = Query(50)):
     """Returns orderbook depth and microstructure imbalance metrics."""
     data = await orderbook_engine.get_depth(symbol.upper(), depth=depth)
     return {

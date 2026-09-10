@@ -38,7 +38,9 @@ fun SystemHealthScreen(viewModel: CryptoScopeViewModel) {
     val textColor = if (isDark) DarkTextPrimary else LightTextPrimary
     val textMutedColor = if (isDark) DarkTextMuted else LightTextMuted
 
-    val providers = remember { viewModel.repository.getProviderHealthList() }
+    val backendProviders by viewModel.repository.backendProviders.collectAsState()
+    val isLiveConnected by viewModel.repository.isLiveConnected.collectAsState()
+    val providers = remember(backendProviders, isLiveConnected) { viewModel.repository.getProviderHealthList() }
     val workers = remember { viewModel.repository.getPipelineWorkerStatuses() }
     val dataQuality = remember(uiState.selectedAsset) { viewModel.repository.getDataQualityReport(uiState.selectedAsset) }
     val assetRegistry = remember { viewModel.repository.getAssetRegistry() }

@@ -8,8 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -65,16 +64,29 @@ fun AlertsScreen(viewModel: CryptoScopeViewModel) {
                 Text("Alerts", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = textColor)
                 Text("Confidence-gated notifications", fontSize = 11.sp, color = textMutedColor)
             }
-            Button(
-                onClick = { viewModel.navigateTo(ScreenRoute.CREATE_ALERT) },
-                colors = ButtonDefaults.buttonColors(containerColor = BrandBlue, contentColor = Color.White),
-                shape = RoundedCornerShape(8.dp),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                modifier = Modifier.height(36.dp).testTag("create_alert_cta")
-            ) {
-                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("CREATE", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = { viewModel.navigateTo(ScreenRoute.PRICE_THRESHOLDS) },
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, BrandBlue),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                    modifier = Modifier.height(36.dp).testTag("price_thresholds_cta")
+                ) {
+                    Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = BrandBlue, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("THRESHOLDS", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = BrandBlue)
+                }
+                Button(
+                    onClick = { viewModel.navigateTo(ScreenRoute.CREATE_ALERT) },
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandBlue, contentColor = Color.White),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                    modifier = Modifier.height(36.dp).testTag("create_alert_cta")
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("CREATE", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
 

@@ -125,7 +125,7 @@ fun AIPredictionScreen(viewModel: CryptoScopeViewModel) {
         ) {
             items(AssetSymbol.values()) { asset ->
                 val isSelected = uiState.selectedAsset == asset
-                val assetPrice = livePrices[asset.code] ?: asset.basePrice
+                val assetPrice = livePrices[asset.name] ?: livePrices[asset.code] ?: asset.basePrice
                 Surface(
                     shape = RoundedCornerShape(16.dp),
                     color = if (isSelected) BrandBlue else (if (isDark) DarkSurfaceRaised else LightSurfaceRaised),

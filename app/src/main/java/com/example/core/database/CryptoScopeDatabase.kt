@@ -41,6 +41,24 @@ interface CryptoScopeDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun updateMarketCache(items: List<MarketCacheEntity>)
+
+    @Query("SELECT * FROM price_thresholds ORDER BY createdAt DESC")
+    fun getAllPriceThresholds(): Flow<List<PriceThresholdEntity>>
+
+    @Query("SELECT * FROM price_thresholds WHERE assetSymbol = :assetSymbol ORDER BY targetPrice ASC")
+    fun getPriceThresholdsForAsset(assetSymbol: String): Flow<List<PriceThresholdEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertPriceThreshold(threshold: PriceThresholdEntity)
+
+    @Query("DELETE FROM price_thresholds WHERE id = :thresholdId")
+    suspend fun deletePriceThresholdById(thresholdId: String)
+
+    @Query("UPDATE price_thresholds SET isActive = :isActive WHERE id = :thresholdId")
+    suspend fun updatePriceThresholdStatus(thresholdId: String, isActive: Boolean)
+
+    @Query("UPDATE price_thresholds SET isTriggered = :isTriggered WHERE id = :thresholdId")
+    suspend fun updatePriceThresholdTriggered(thresholdId: String, isTriggered: Boolean)
 }
 
 @Database(
@@ -48,9 +66,10 @@ interface CryptoScopeDao {
         WatchlistEntity::class,
         AlertRuleEntity::class,
         PaperPositionEntity::class,
-        MarketCacheEntity::class
+        MarketCacheEntity::class,
+        PriceThresholdEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class CryptoScopeDatabase : RoomDatabase() {

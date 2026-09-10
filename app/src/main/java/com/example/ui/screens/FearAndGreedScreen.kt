@@ -45,6 +45,12 @@ fun FearAndGreedScreen(viewModel: CryptoScopeViewModel) {
     val textColor = if (isDark) DarkTextPrimary else LightTextPrimary
     val textMutedColor = if (isDark) DarkTextMuted else LightTextMuted
 
+    val sentiment by viewModel.sentiment.collectAsState()
+    val fearGreedHistory by viewModel.repository.fearGreedHistory.collectAsState()
+
+    val currentScore = fearGreedHistory.firstOrNull()?.value?.toIntOrNull() ?: sentiment.fearGreedIndex
+    val currentLabel = fearGreedHistory.firstOrNull()?.valueClassification ?: sentiment.fearGreedClassification
+
     var selectedTimeline by remember { mutableStateOf("All") }
 
     Scaffold(
@@ -105,8 +111,8 @@ fun FearAndGreedScreen(viewModel: CryptoScopeViewModel) {
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     SpeedometerArcGauge(
-                        score = 70,
-                        label = "Greed",
+                        score = currentScore,
+                        label = currentLabel,
                         isDark = isDark
                     )
 
@@ -137,13 +143,24 @@ fun FearAndGreedScreen(viewModel: CryptoScopeViewModel) {
                     )
                     Spacer(modifier = Modifier.height(14.dp))
 
+                    val yesterday = fearGreedHistory.getOrNull(1)
+                    val sevenDays = fearGreedHistory.getOrNull(7)
+                    val thirtyDays = fearGreedHistory.getOrNull(29) ?: fearGreedHistory.lastOrNull()
+
+                    val yVal = yesterday?.value?.toIntOrNull() ?: 61
+                    val yClass = yesterday?.valueClassification ?: "Greed"
+                    val sVal = sevenDays?.value?.toIntOrNull() ?: 73
+                    val sClass = sevenDays?.valueClassification ?: "Greed"
+                    val tVal = thirtyDays?.value?.toIntOrNull() ?: 28
+                    val tClass = thirtyDays?.valueClassification ?: "Fear"
+
                     val historyItems = listOf(
-                        Triple("Yesterday", "Greed-61", SemanticPositive),
-                        Triple("7 days ago", "Greed-73", SemanticPositive),
-                        Triple("30 days ago", "Fear-28", SemanticNegative)
+                        Triple("Yesterday", "$yClass-$yVal", if (yVal >= 50) SemanticPositive else SemanticNegative),
+                        Triple("7 days ago", "$sClass-$sVal", if (sVal >= 50) SemanticPositive else SemanticNegative),
+                        Triple("30 days ago", "$tClass-$tVal", if (tVal >= 50) SemanticPositive else SemanticNegative)
                     )
 
-                    historyItems.forEachIndexed { index, (period, sentiment, color) ->
+                    historyItems.forEachIndexed { index, (period, sentimentText, color) ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -161,7 +178,7 @@ fun FearAndGreedScreen(viewModel: CryptoScopeViewModel) {
                                 color = color.copy(alpha = 0.15f)
                             ) {
                                 Text(
-                                    text = sentiment,
+                                    text = sentimentText,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = color,

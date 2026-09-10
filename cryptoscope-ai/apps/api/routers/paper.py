@@ -21,7 +21,7 @@ paper_engine = PaperTradingEngine()
 
 class PaperOrderRequest(BaseModel):
     symbol: str = Field(..., max_length=20)
-    side: str = Field(..., regex="^(BUY|SELL|LONG|SHORT)$")
+    side: str = Field(...)
     size_usd: float = Field(..., gt=0)
     leverage: float = Field(2.0, ge=1.0, le=50.0)
 

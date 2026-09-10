@@ -8,7 +8,14 @@ Example:
   Canonical: BTC/USDT/PERP
 """
 from typing import Dict, Any, Optional
-from pydantic import BaseModel
+
+try:
+    from pydantic import BaseModel
+except ImportError:
+    class BaseModel:
+        def __init__(self, **kwargs):
+            for k, v in kwargs.items():
+                setattr(self, k, v)
 
 
 class InstrumentSpec(BaseModel):

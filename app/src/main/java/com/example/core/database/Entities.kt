@@ -52,3 +52,15 @@ data class MarketCacheEntity(
     val volume24h: Double,
     val updatedAt: Long = System.currentTimeMillis()
 )
+
+@Entity(tableName = "price_thresholds")
+data class PriceThresholdEntity(
+    @PrimaryKey val id: String,
+    val assetSymbol: String,               // e.g. "BTC", "ETH", "SOL"
+    val targetPrice: Double,               // Threshold price in USD
+    val condition: String = "ABOVE",       // "ABOVE" (>= targetPrice) or "BELOW" (<= targetPrice)
+    val note: String? = null,              // Optional user note or thesis
+    val isActive: Boolean = true,          // Active monitoring flag
+    val isTriggered: Boolean = false,      // Whether price crossed threshold
+    val createdAt: Long = System.currentTimeMillis()
+)

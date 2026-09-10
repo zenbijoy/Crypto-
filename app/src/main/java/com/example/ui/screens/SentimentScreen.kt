@@ -25,7 +25,8 @@ import com.example.ui.viewmodel.CryptoScopeViewModel
 @Composable
 fun SentimentScreen(viewModel: CryptoScopeViewModel) {
     val uiState by viewModel.uiState.collectAsState()
-    val sentiment = remember(uiState.selectedAsset) {
+    val liveSentiment by viewModel.sentiment.collectAsState()
+    val sentiment = remember(uiState.selectedAsset, liveSentiment) {
         viewModel.repository.getSentiment(uiState.selectedAsset)
     }
 

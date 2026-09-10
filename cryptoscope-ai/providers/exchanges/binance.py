@@ -2,7 +2,11 @@
 CryptoScope AI - Binance USD-M Perpetual Futures Provider
 Implements full normalized interface using real Binance public REST & WebSocket data.
 """
-import httpx
+try:
+    import httpx
+except ImportError:
+    httpx = None
+
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 from providers.exchanges.base import (

@@ -6,8 +6,22 @@ provider, symbol, canonical_symbol, market_type, event_time, available_time, ing
 """
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional
-from pydantic import BaseModel, Field
 from datetime import datetime, timezone
+
+try:
+    from pydantic import BaseModel, Field
+except ImportError:
+    from dataclasses import dataclass, field
+
+    class BaseModel:
+        def __init__(self, **kwargs):
+            for k, v in kwargs.items():
+                setattr(self, k, v)
+
+    def Field(default=None, default_factory=None, **kwargs):
+        if default_factory is not None:
+            return field(default_factory=default_factory)
+        return field(default=default)
 
 
 class NormalizedObservation(BaseModel):

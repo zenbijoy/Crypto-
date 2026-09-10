@@ -3,7 +3,11 @@ CryptoScope AI - Bybit V5 Linear Perpetual Futures Provider
 Implements full normalized interface using real Bybit V5 public REST data.
 Zero fake data, strictly real responses.
 """
-import httpx
+try:
+    import httpx
+except ImportError:
+    httpx = None
+
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 from providers.exchanges.base import (

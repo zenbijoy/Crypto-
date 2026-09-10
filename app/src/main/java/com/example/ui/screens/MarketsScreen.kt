@@ -45,25 +45,24 @@ fun MarketsScreen(viewModel: CryptoScopeViewModel) {
     val textColor = if (isDark) DarkTextPrimary else LightTextPrimary
     val textMutedColor = if (isDark) DarkTextMuted else LightTextMuted
 
-    val livePrices by viewModel.repository.livePrices.collectAsState()
-    val markets = remember(livePrices) { viewModel.repository.getMarkets() }
+    val liveMarkets by viewModel.liveMarkets.collectAsState()
 
     var topTab by remember { mutableStateOf("Derivatives") }
     var subTab by remember { mutableStateOf("Markets") }
     var searchQuery by remember { mutableStateOf("") }
     var sortByChange by remember { mutableStateOf(false) }
 
-    val filteredMarkets = remember(markets, searchQuery, subTab, sortByChange, uiState.watchlist) {
+    val filteredMarkets = remember(liveMarkets, searchQuery, subTab, sortByChange, uiState.watchlist) {
         val base = when (subTab) {
-            "Favorites" -> markets.filter { uiState.watchlist.contains(it.asset) }
-            "Category" -> markets.filter { it.asset in setOf("BTC", "ETH", "SOL", "BNB") }
-            else -> markets
+            "Favorites" -> liveMarkets.filter { uiState.watchlist.contains(it.asset) }
+            "Category" -> liveMarkets.filter { it.asset in setOf("BTC", "ETH", "SOL", "BNB") }
+            else -> liveMarkets
         }
         base.filter {
             if (searchQuery.isBlank()) true
             else it.asset.contains(searchQuery, ignoreCase = true) || it.pair.contains(searchQuery, ignoreCase = true)
         }.let { list ->
-            if (sortByChange) list.sortedByDescending { it.change24h }
+            if (sortByChange) list.sortedByDescending { it.change24hPct }
             else list
         }
     }
@@ -114,16 +113,29 @@ fun MarketsScreen(viewModel: CryptoScopeViewModel) {
                     }
                 }
 
-                IconButton(
-                    onClick = { viewModel.navigateTo(ScreenRoute.GLOBAL_SEARCH) },
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = "Search",
-                        tint = textColor,
-                        modifier = Modifier.size(20.dp)
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = { viewModel.navigateTo(ScreenRoute.WATCHLIST) },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = "Watchlist Screen",
+                            tint = BrandGold,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    IconButton(
+                        onClick = { viewModel.navigateTo(ScreenRoute.GLOBAL_SEARCH) },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Search",
+                            tint = textColor,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
         }
@@ -297,24 +309,29 @@ fun MarketsScreen(viewModel: CryptoScopeViewModel) {
                                 modifier = Modifier.weight(1.2f),
                                 horizontalAlignment = Alignment.Start
                             ) {
+                                val formattedPrice = when {
+                                    market.price >= 100 -> String.format(java.util.Locale.US, "%,.2f", market.price)
+                                    market.price >= 1 -> String.format(java.util.Locale.US, "%.3f", market.price)
+                                    else -> String.format(java.util.Locale.US, "%.4f", market.price)
+                                }
                                 Text(
-                                    text = "$${"%,.2f".format(market.price)}",
+                                    text = "$$formattedPrice",
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = textColor
                                 )
                                 val mcapDisplay = when (market.asset) {
-                                    "BTC" -> "$2.14T"
-                                    "ETH" -> "$526B"
-                                    "SOL" -> "$98B"
-                                    "BNB" -> "$118B"
-                                    "XRP" -> "$172B"
-                                    "DOGE" -> "$34B"
-                                    "AVAX" -> "$14B"
-                                    "SUI" -> "$9.8B"
-                                    "LINK" -> "$14.2B"
-                                    "ADA" -> "$35B"
-                                    else -> "$${String.format("%.1f", (market.volume24h * 15) / 1e9)}B"
+                                    "BTC" -> "$${String.format(java.util.Locale.US, "%.2f", (market.price * 19.8e6) / 1e12)}T"
+                                    "ETH" -> "$${String.format(java.util.Locale.US, "%.1f", (market.price * 120.4e6) / 1e9)}B"
+                                    "SOL" -> "$${String.format(java.util.Locale.US, "%.1f", (market.price * 470e6) / 1e9)}B"
+                                    "BNB" -> "$${String.format(java.util.Locale.US, "%.1f", (market.price * 145e6) / 1e9)}B"
+                                    "XRP" -> "$${String.format(java.util.Locale.US, "%.1f", (market.price * 57e9) / 1e9)}B"
+                                    "DOGE" -> "$${String.format(java.util.Locale.US, "%.1f", (market.price * 148e9) / 1e9)}B"
+                                    "AVAX" -> "$${String.format(java.util.Locale.US, "%.1f", (market.price * 400e6) / 1e9)}B"
+                                    "SUI" -> "$${String.format(java.util.Locale.US, "%.1f", (market.price * 2.8e9) / 1e9)}B"
+                                    "LINK" -> "$${String.format(java.util.Locale.US, "%.1f", (market.price * 608e6) / 1e9)}B"
+                                    "ADA" -> "$${String.format(java.util.Locale.US, "%.1f", (market.price * 35.7e9) / 1e9)}B"
+                                    else -> "$${String.format(java.util.Locale.US, "%.1f", (market.volume24h * 5) / 1e9)}B"
                                 }
                                 Text(
                                     text = "MCap: $mcapDisplay",
@@ -330,7 +347,7 @@ fun MarketsScreen(viewModel: CryptoScopeViewModel) {
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Text(
-                                    text = "${if (isPositive) "+" else ""}${"%.2f".format(market.change24h)}%",
+                                    text = "${if (isPositive) "+" else ""}${String.format(java.util.Locale.US, "%.2f", market.change24hPct)}%",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White,

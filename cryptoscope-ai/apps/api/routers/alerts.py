@@ -178,7 +178,9 @@ async def update_alert(
     user: SupabaseUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = select(AlertRuleModel).where(AlertRuleModel.id == alert_id)
+    stmt = select(AlertRuleModel).where(
+        (AlertRuleModel.id == alert_id) & (AlertRuleModel.user_id == user.id)
+    )
     result = await db.execute(stmt)
     alert = result.scalar_one_or_none()
     if not alert:
@@ -202,7 +204,9 @@ async def delete_alert(
     user: SupabaseUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = delete(AlertRuleModel).where(AlertRuleModel.id == alert_id)
+    stmt = delete(AlertRuleModel).where(
+        (AlertRuleModel.id == alert_id) & (AlertRuleModel.user_id == user.id)
+    )
     await db.execute(stmt)
     await db.commit()
     return {"success": True, "message": "Alert deleted"}

@@ -208,6 +208,32 @@ fun MoreHubScreen(viewModel: CryptoScopeViewModel) {
         Spacer(modifier = Modifier.height(8.dp))
 
         HubRowItem(
+            icon = Icons.Default.Star,
+            title = "Watchlist & Pinned Assets",
+            subtitle = "Favorite markets stored in Room with floating price widget",
+            cardColor = cardColor,
+            borderColor = borderColor,
+            textColor = textColor,
+            textMutedColor = textMutedColor,
+            isDark = isDark,
+            onClick = { viewModel.navigateTo(ScreenRoute.WATCHLIST) }
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        HubRowItem(
+            icon = Icons.Default.NotificationsActive,
+            title = "Price Threshold Alerts",
+            subtitle = "Set & monitor target prices with Room local database",
+            cardColor = cardColor,
+            borderColor = borderColor,
+            textColor = textColor,
+            textMutedColor = textMutedColor,
+            isDark = isDark,
+            onClick = { viewModel.navigateTo(ScreenRoute.PRICE_THRESHOLDS) }
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        HubRowItem(
             icon = Icons.Default.Notifications,
             title = "Notifications & Live Signal Feed",
             subtitle = "Configured webhooks, execution logs, alerts",

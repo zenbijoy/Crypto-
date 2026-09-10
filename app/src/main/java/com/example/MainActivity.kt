@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ui.screens.*
 import com.example.ui.theme.*
+import com.example.ui.util.AppLocalization
 import com.example.ui.viewmodel.CryptoScopeViewModel
 import com.example.ui.viewmodel.MainTab
 import com.example.ui.viewmodel.ScreenRoute
@@ -75,7 +76,8 @@ fun CryptoScopeApp(viewModel: CryptoScopeViewModel) {
                     onTabSelected = { viewModel.selectTab(it) },
                     isDark = isDark,
                     cardColor = cardColor,
-                    borderColor = borderColor
+                    borderColor = borderColor,
+                    language = uiState.selectedLanguage
                 )
             }
         },
@@ -110,6 +112,8 @@ fun CryptoScopeApp(viewModel: CryptoScopeViewModel) {
                     ScreenRoute.EDIT_PROFILE -> EditProfileScreen(viewModel = viewModel)
                     ScreenRoute.NEWS_DETAIL -> NewsScreen(viewModel = viewModel)
                     ScreenRoute.CREATE_ALERT -> CreateAlertScreen(viewModel = viewModel)
+                    ScreenRoute.PRICE_THRESHOLDS -> PriceThresholdsScreen(viewModel = viewModel)
+                    ScreenRoute.WATCHLIST -> WatchlistScreen(viewModel = viewModel)
                     ScreenRoute.ALERT_DETAIL -> AlertDetailScreen(viewModel = viewModel)
                     ScreenRoute.PAPER_DASHBOARD -> PaperDashboardScreen(viewModel = viewModel)
                     ScreenRoute.PAPER_ORDER_TICKET -> PaperOrderTicketScreen(viewModel = viewModel)
@@ -137,7 +141,8 @@ fun CryptoScopeBottomBar(
     onTabSelected: (MainTab) -> Unit,
     isDark: Boolean,
     cardColor: Color,
-    borderColor: Color
+    borderColor: Color,
+    language: String = "English"
 ) {
     val activeColor = BrandBlue
     val inactiveColor = if (isDark) DarkTextMuted else LightTextMuted
@@ -152,11 +157,11 @@ fun CryptoScopeBottomBar(
             .testTag("bottom_nav_bar")
     ) {
         val items = listOf(
-            NavTabItem(MainTab.HOME, "Home", Icons.Default.Home),
-            NavTabItem(MainTab.MARKETS, "Markets", Icons.Default.ShowChart),
-            NavTabItem(MainTab.ORDER_FLOW, "OrderFlow", Icons.Default.QueryStats, hasAiBadge = true),
-            NavTabItem(MainTab.NEWS, "News", Icons.Default.Article),
-            NavTabItem(MainTab.USER_CENTER, "User Center", Icons.Default.Person)
+            NavTabItem(MainTab.HOME, AppLocalization.tr("nav_home", language), Icons.Default.Home),
+            NavTabItem(MainTab.MARKETS, AppLocalization.tr("nav_markets", language), Icons.Default.ShowChart),
+            NavTabItem(MainTab.ORDER_FLOW, AppLocalization.tr("nav_orderflow", language), Icons.Default.QueryStats, hasAiBadge = true),
+            NavTabItem(MainTab.NEWS, AppLocalization.tr("nav_news", language), Icons.Default.Article),
+            NavTabItem(MainTab.USER_CENTER, AppLocalization.tr("nav_user_center", language), Icons.Default.Person)
         )
 
         items.forEach { tabItem ->

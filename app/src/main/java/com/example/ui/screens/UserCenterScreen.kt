@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.*
+import com.example.ui.util.AppLocalization
 import com.example.ui.viewmodel.CryptoScopeViewModel
 import com.example.ui.viewmodel.ScreenRoute
 
@@ -44,6 +45,7 @@ fun UserCenterScreen(viewModel: CryptoScopeViewModel) {
     val context = LocalContext.current
 
     var selectedTab by remember { mutableStateOf("General") }
+    var showLanguageDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -57,6 +59,16 @@ fun UserCenterScreen(viewModel: CryptoScopeViewModel) {
                     )
                 },
                 actions = {
+                    IconButton(
+                        onClick = { showLanguageDialog = true },
+                        modifier = Modifier.testTag("topbar_language_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Language,
+                            contentDescription = "Language",
+                            tint = textColor
+                        )
+                    }
                     IconButton(onClick = { viewModel.navigateTo(ScreenRoute.NOTIFICATIONS) }) {
                         Icon(
                             imageVector = Icons.Default.Notifications,
@@ -277,9 +289,9 @@ fun UserCenterScreen(viewModel: CryptoScopeViewModel) {
                 Column {
                     // Floating Window
                     SettingsRow(
-                        title = "Floating Window",
-                        subtitle = "Fast widget on desktop",
-                        onClick = { Toast.makeText(context, "Floating window enabled", Toast.LENGTH_SHORT).show() },
+                        title = "Floating Asset Price Widget",
+                        subtitle = "Active asset: ${uiState.floatingPriceAsset} / USDT (Watchlist)",
+                        onClick = { viewModel.navigateTo(ScreenRoute.WATCHLIST) },
                         textColor = textColor,
                         borderColor = borderColor
                     )
@@ -321,10 +333,12 @@ fun UserCenterScreen(viewModel: CryptoScopeViewModel) {
                     // Language
                     SettingsRow(
                         title = "Language",
-                        value = "English",
-                        onClick = { Toast.makeText(context, "Language: English", Toast.LENGTH_SHORT).show() },
+                        subtitle = "Select language / Idioma / 言語",
+                        value = uiState.selectedLanguage,
+                        onClick = { showLanguageDialog = true },
                         textColor = textColor,
-                        borderColor = borderColor
+                        borderColor = borderColor,
+                        testTag = "user_center_language_button"
                     )
 
                     // Screenshot Sharing toggle
@@ -393,6 +407,19 @@ fun UserCenterScreen(viewModel: CryptoScopeViewModel) {
 
             Spacer(modifier = Modifier.height(20.dp))
         }
+
+        if (showLanguageDialog) {
+            LanguageSelectionDialog(
+                currentLanguage = uiState.selectedLanguage,
+                onLanguageSelected = { lang ->
+                    viewModel.setLanguage(lang)
+                    Toast.makeText(context, "Language set to $lang", Toast.LENGTH_SHORT).show()
+                    showLanguageDialog = false
+                },
+                onDismiss = { showLanguageDialog = false },
+                isDark = isDark
+            )
+        }
     }
 }
 
@@ -404,11 +431,13 @@ fun SettingsRow(
     onClick: () -> Unit,
     textColor: Color,
     borderColor: Color,
-    showDivider: Boolean = true
+    showDivider: Boolean = true,
+    testTag: String? = null
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .then(if (testTag != null) Modifier.testTag(testTag) else Modifier)
             .clickable { onClick() }
     ) {
         Row(
@@ -442,6 +471,108 @@ fun SettingsRow(
             HorizontalDivider(color = borderColor, thickness = 0.5.dp)
         }
     }
+}
+
+@Composable
+fun LanguageSelectionDialog(
+    currentLanguage: String,
+    onLanguageSelected: (String) -> Unit,
+    onDismiss: () -> Unit,
+    isDark: Boolean
+) {
+    val cardColor = if (isDark) DarkSurface else LightSurface
+    val textColor = if (isDark) DarkTextPrimary else LightTextPrimary
+    val textMutedColor = if (isDark) DarkTextMuted else LightTextMuted
+    val borderColor = if (isDark) DarkBorder else LightBorder
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Language,
+                    contentDescription = null,
+                    tint = BrandBlue,
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Select Language",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = textColor
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 380.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                AppLocalization.supportedLanguages.forEach { lang ->
+                    val isSelected = currentLanguage.equals(lang.displayName, ignoreCase = true) ||
+                            currentLanguage.equals(lang.nativeName, ignoreCase = true)
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isSelected) BrandBlue.copy(alpha = 0.12f) else cardColor,
+                        border = BorderStroke(1.dp, if (isSelected) BrandBlue else borderColor),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onLanguageSelected(lang.displayName)
+                            }
+                            .testTag("lang_option_${lang.code}")
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = lang.flag, fontSize = 20.sp)
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text(
+                                        text = lang.nativeName,
+                                        fontSize = 14.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) BrandBlue else textColor
+                                    )
+                                    Text(
+                                        text = lang.displayName,
+                                        fontSize = 11.sp,
+                                        color = textMutedColor
+                                    )
+                                }
+                            }
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = "Selected",
+                                    tint = BrandBlue,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.testTag("close_language_dialog")
+            ) {
+                Text("Done", color = BrandBlue, fontWeight = FontWeight.Bold)
+            }
+        },
+        containerColor = cardColor
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

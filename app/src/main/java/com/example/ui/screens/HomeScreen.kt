@@ -48,11 +48,27 @@ fun HomeScreen(viewModel: CryptoScopeViewModel) {
     val textMutedColor = if (isDark) DarkTextMuted else LightTextMuted
 
     val livePrices by viewModel.repository.livePrices.collectAsState()
-    val markets = remember(livePrices) { viewModel.repository.getMarkets() }
+    val liveMarkets by viewModel.liveMarkets.collectAsState()
+    val marketOverview by viewModel.marketOverview.collectAsState()
+    val sentiment = remember(livePrices) { viewModel.repository.getSentiment() }
+
+    val fgScore = marketOverview?.fearAndGreed?.value ?: sentiment.fearGreedScore
+    val fgClassification = marketOverview?.fearAndGreed?.classification ?: sentiment.fearGreedLabel
+    val fgColor = if (fgScore >= 55) SemanticPositive else if (fgScore <= 45) SemanticNegative else SemanticWarning
+    val fgBgColor = if (fgScore >= 55) SemanticPositiveLight else if (fgScore <= 45) SemanticNegativeLight else SemanticWarningLight
 
     var topHeaderTab by remember { mutableStateOf("Market") }
     var selectedMoverTab by remember { mutableStateOf("OI Chg") }
     var selectedLongShortTf by remember { mutableStateOf("24H") }
+
+    val displayedMovers = remember(liveMarkets, selectedMoverTab) {
+        when (selectedMoverTab) {
+            "Gainers" -> liveMarkets.sortedByDescending { it.change24hPct }.take(5)
+            "Losers" -> liveMarkets.sortedBy { it.change24hPct }.take(5)
+            "Funding Rate" -> liveMarkets.sortedByDescending { it.fundingRate }.take(5)
+            else -> liveMarkets.sortedByDescending { it.openInterestUsd }.take(5)
+        }
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -98,6 +114,30 @@ fun HomeScreen(viewModel: CryptoScopeViewModel) {
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = { viewModel.navigateTo(ScreenRoute.WATCHLIST) },
+                        modifier = Modifier.size(36.dp).testTag("home_watchlist_button")
+                    ) {
+                        BadgedBox(
+                            badge = {
+                                if (uiState.watchlist.isNotEmpty()) {
+                                    Badge(
+                                        containerColor = BrandGold,
+                                        contentColor = BackgroundDark
+                                    ) {
+                                        Text("${uiState.watchlist.size}", fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Star,
+                                contentDescription = "Watchlist",
+                                tint = BrandGold,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
                     IconButton(
                         onClick = { viewModel.navigateTo(ScreenRoute.GLOBAL_SEARCH) },
                         modifier = Modifier.size(36.dp)
@@ -187,8 +227,8 @@ fun HomeScreen(viewModel: CryptoScopeViewModel) {
         item {
             Surface(
                 shape = RoundedCornerShape(20.dp),
-                color = SemanticPositiveLight,
-                border = BorderStroke(1.dp, SemanticPositive.copy(alpha = 0.3f)),
+                color = fgBgColor,
+                border = BorderStroke(1.dp, fgColor.copy(alpha = 0.3f)),
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { viewModel.navigateTo(ScreenRoute.FEAR_AND_GREED_DETAIL) }
@@ -205,29 +245,29 @@ fun HomeScreen(viewModel: CryptoScopeViewModel) {
                             modifier = Modifier
                                 .size(8.dp)
                                 .clip(CircleShape)
-                                .background(SemanticPositive)
+                                .background(fgColor)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Greed",
+                            text = fgClassification,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
-                            color = SemanticPositive
+                            color = fgColor
                         )
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "Fear and Greed 70",
+                            text = "Fear and Greed $fgScore",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
-                            color = SemanticPositive
+                            color = fgColor
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                             contentDescription = null,
-                            tint = SemanticPositive,
+                            tint = fgColor,
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -237,6 +277,8 @@ fun HomeScreen(viewModel: CryptoScopeViewModel) {
 
         // 4-Metric Overview Grid Card
         item {
+            val fSummary = marketOverview?.futuresOverview
+            val lSummary = marketOverview?.liquidations24h
             Surface(
                 shape = RoundedCornerShape(16.dp),
                 color = cardColor,
@@ -252,10 +294,17 @@ fun HomeScreen(viewModel: CryptoScopeViewModel) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text("Total Futures OI", fontSize = 11.sp, color = textMutedColor)
                             Spacer(modifier = Modifier.height(2.dp))
+                            val oiChg = fSummary?.openInterestChange24hPct ?: 1.42
+                            val isOiPos = oiChg >= 0
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("106.9B", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = textColor)
+                                Text(fSummary?.totalOpenInterestFormatted ?: "$118.4B", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = textColor)
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("▼ 1.05%", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SemanticNegative)
+                                Text(
+                                    text = "${if (isOiPos) "▲" else "▼"} ${String.format(java.util.Locale.US, "%.2f", Math.abs(oiChg))}%",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isOiPos) SemanticPositive else SemanticNegative
+                                )
                             }
                         }
 
@@ -263,10 +312,17 @@ fun HomeScreen(viewModel: CryptoScopeViewModel) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text("24H Futures Volume", fontSize = 11.sp, color = textMutedColor)
                             Spacer(modifier = Modifier.height(2.dp))
+                            val volChg = fSummary?.volumeChange24hPct ?: -3.21
+                            val isVolPos = volChg >= 0
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("141.3B", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = textColor)
+                                Text(fSummary?.total24hVolumeFormatted ?: "$142.8B", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = textColor)
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("▼ 14.53%", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SemanticNegative)
+                                Text(
+                                    text = "${if (isVolPos) "▲" else "▼"} ${String.format(java.util.Locale.US, "%.2f", Math.abs(volChg))}%",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isVolPos) SemanticPositive else SemanticNegative
+                                )
                             }
                         }
                     }
@@ -283,10 +339,18 @@ fun HomeScreen(viewModel: CryptoScopeViewModel) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text("Longs Shorts Ratio", fontSize = 11.sp, color = textMutedColor)
                             Spacer(modifier = Modifier.height(2.dp))
+                            val lsRatio = fSummary?.longShortRatio ?: 1.18
+                            val lsChg = fSummary?.longShortChange24hPct ?: 2.4
+                            val isLsPos = lsChg >= 0
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("1.23", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = textColor)
+                                Text(String.format(java.util.Locale.US, "%.2f", lsRatio), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = textColor)
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("▲ 20.00%", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SemanticPositive)
+                                Text(
+                                    text = "${if (isLsPos) "▲" else "▼"} ${String.format(java.util.Locale.US, "%.2f", Math.abs(lsChg))}%",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isLsPos) SemanticPositive else SemanticNegative
+                                )
                             }
                         }
 
@@ -295,9 +359,9 @@ fun HomeScreen(viewModel: CryptoScopeViewModel) {
                             Text("Liquidation (24H)", fontSize = 11.sp, color = textMutedColor)
                             Spacer(modifier = Modifier.height(2.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("L $120.5M", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SemanticNegative)
+                                Text("L ${lSummary?.longLiquidationsFormatted ?: "$120.5M"}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SemanticNegative)
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("S $71.5M", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SemanticPositive)
+                                Text("S ${lSummary?.shortLiquidationsFormatted ?: "$71.5M"}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SemanticPositive)
                             }
                         }
                     }
@@ -383,8 +447,8 @@ fun HomeScreen(viewModel: CryptoScopeViewModel) {
                 FeatureItem("Liquidation Map", Icons.Default.BarChart, SemanticNegative) {
                     viewModel.navigateTo(ScreenRoute.LIQUIDATION_MAP)
                 },
-                FeatureItem("ETF Flow", Icons.Default.PieChart, SemanticPositive) {
-                    viewModel.navigateTo(ScreenRoute.ETF_FLOW)
+                FeatureItem("Watchlist", Icons.Default.Star, BrandGold) {
+                    viewModel.navigateTo(ScreenRoute.WATCHLIST)
                 },
                 FeatureItem("Funding Heatmap", Icons.Default.GridOn, Color(0xFF13C2C2)) {
                     viewModel.navigateTo(ScreenRoute.FUNDING_HEATMAP)
@@ -448,12 +512,16 @@ fun HomeScreen(viewModel: CryptoScopeViewModel) {
                             Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = textMutedColor, modifier = Modifier.size(12.dp))
                         }
                         Spacer(modifier = Modifier.height(6.dp))
-                        Text("70", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = SemanticPositive)
-                        Text("Greed", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SemanticPositive)
+                        Text(fgScore.toString(), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = fgColor)
+                        Text(fgClassification, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = fgColor)
                     }
                 }
 
                 // BTC Market Cap Dominance Card
+                val btcDom = marketOverview?.btcDominance
+                val btcDomPct = btcDom?.percentage ?: 58.42
+                val btcDomChg = btcDom?.change24hPct ?: -0.05
+                val isBtcDomPos = btcDomChg >= 0
                 Surface(
                     shape = RoundedCornerShape(14.dp),
                     color = cardColor,
@@ -463,12 +531,20 @@ fun HomeScreen(viewModel: CryptoScopeViewModel) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text("BTC Dominance", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = textColor)
                         Spacer(modifier = Modifier.height(6.dp))
-                        Text("59.73%", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = textColor)
-                        Text("▼ 0.02%", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SemanticNegative)
+                        Text("${String.format(java.util.Locale.US, "%.2f", btcDomPct)}%", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = textColor)
+                        Text(
+                            text = "${if (isBtcDomPos) "▲" else "▼"} ${String.format(java.util.Locale.US, "%.2f", Math.abs(btcDomChg))}%",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isBtcDomPos) SemanticPositive else SemanticNegative
+                        )
                     }
                 }
 
                 // Altcoin Season Index Card
+                val altSeason = marketOverview?.altcoinSeason
+                val altScore = altSeason?.score ?: 51
+                val altLabel = altSeason?.label ?: "Neutral Market"
                 Surface(
                     shape = RoundedCornerShape(14.dp),
                     color = cardColor,
@@ -478,8 +554,8 @@ fun HomeScreen(viewModel: CryptoScopeViewModel) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text("Altcoin Season", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = textColor)
                         Spacer(modifier = Modifier.height(6.dp))
-                        Text("51 / 100", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = BrandGold)
-                        Text("Alt Season", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = BrandGold)
+                        Text("$altScore / 100", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = BrandGold)
+                        Text(altLabel, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = BrandGold)
                     }
                 }
             }
@@ -635,7 +711,15 @@ fun HomeScreen(viewModel: CryptoScopeViewModel) {
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    Text("BTC Taker Buy/Sell Ratio: 0.95", fontSize = 12.sp, color = textMutedColor)
+                    val longPctVal = (marketOverview?.futuresOverview?.longAccountPct ?: 48.67).coerceIn(10.0, 90.0)
+                    val shortPctVal = (100.0 - longPctVal).coerceIn(10.0, 90.0)
+                    val takerBuySellVal = marketOverview?.futuresOverview?.takerBuySellRatio ?: 0.95
+
+                    Text(
+                        text = "BTC Taker Buy/Sell Ratio: ${String.format(java.util.Locale.US, "%.2f", takerBuySellVal)}",
+                        fontSize = 12.sp,
+                        color = textMutedColor
+                    )
 
                     Spacer(modifier = Modifier.height(8.dp))
 
@@ -648,23 +732,33 @@ fun HomeScreen(viewModel: CryptoScopeViewModel) {
                     ) {
                         Box(
                             modifier = Modifier
-                                .weight(0.4867f)
+                                .weight((longPctVal / 100.0).toFloat())
                                 .fillMaxHeight()
                                 .background(SemanticPositive)
                                 .padding(start = 8.dp),
                             contentAlignment = Alignment.CenterStart
                         ) {
-                            Text("Longs 48.67%", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            Text(
+                                text = "Longs ${String.format(java.util.Locale.US, "%.1f", longPctVal)}%",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
                         }
                         Box(
                             modifier = Modifier
-                                .weight(0.5133f)
+                                .weight((shortPctVal / 100.0).toFloat())
                                 .fillMaxHeight()
                                 .background(SemanticNegative)
                                 .padding(end = 8.dp),
                             contentAlignment = Alignment.CenterEnd
                         ) {
-                            Text("Shorts 51.33%", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            Text(
+                                text = "Shorts ${String.format(java.util.Locale.US, "%.1f", shortPctVal)}%",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
                         }
                     }
                 }
@@ -725,10 +819,21 @@ fun HomeScreen(viewModel: CryptoScopeViewModel) {
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // Coin rows
-                    markets.take(5).forEachIndexed { idx, market ->
-                        val isPos = market.change24h >= 0
+                    // Coin rows from live displayedMovers
+                    displayedMovers.take(5).forEachIndexed { idx, market ->
+                        val isPos = market.change24hPct >= 0
                         val badgeCol = if (isPos) SemanticPositive else SemanticNegative
+                        val compactOi = when {
+                            market.openInterestUsd >= 1e9 -> String.format(java.util.Locale.US, "%.1fB", market.openInterestUsd / 1e9)
+                            market.openInterestUsd >= 1e6 -> String.format(java.util.Locale.US, "%.1fM", market.openInterestUsd / 1e6)
+                            market.openInterestUsd >= 1e3 -> String.format(java.util.Locale.US, "%.1fK", market.openInterestUsd / 1e3)
+                            else -> String.format(java.util.Locale.US, "%.0f", market.openInterestUsd)
+                        }
+                        val formattedPrice = when {
+                            market.price >= 100 -> String.format(java.util.Locale.US, "%,.2f", market.price)
+                            market.price >= 1 -> String.format(java.util.Locale.US, "%.3f", market.price)
+                            else -> String.format(java.util.Locale.US, "%.4f", market.price)
+                        }
 
                         Row(
                             modifier = Modifier
@@ -765,18 +870,18 @@ fun HomeScreen(viewModel: CryptoScopeViewModel) {
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Column {
                                     Text(market.asset, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = textColor)
-                                    Text("OI: $${market.volume24h}", fontSize = 10.sp, color = textMutedColor)
+                                    Text("OI: $$compactOi", fontSize = 10.sp, color = textMutedColor)
                                 }
                             }
 
-                            Text("$${"%,.2f".format(market.price)}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = textColor)
+                            Text("$$formattedPrice", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = textColor)
 
                             Surface(
                                 shape = RoundedCornerShape(4.dp),
                                 color = badgeCol
                             ) {
                                 Text(
-                                    text = "${if (isPos) "+" else ""}${"%.2f".format(market.change24h)}%",
+                                    text = "${if (isPos) "+" else ""}${String.format(java.util.Locale.US, "%.2f", market.change24hPct)}%",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White,
@@ -785,7 +890,7 @@ fun HomeScreen(viewModel: CryptoScopeViewModel) {
                             }
                         }
 
-                        if (idx < 4) {
+                        if (idx < displayedMovers.take(5).size - 1) {
                             HorizontalDivider(color = borderColor, thickness = 0.5.dp)
                         }
                     }

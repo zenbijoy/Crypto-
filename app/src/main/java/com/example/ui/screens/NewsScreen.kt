@@ -50,46 +50,81 @@ fun NewsScreen(viewModel: CryptoScopeViewModel) {
     var activeTab by remember { mutableStateOf("News flash") }
     var selectedFilter by remember { mutableStateOf("All") }
 
-    val newsItems = remember {
-        listOf(
-            NewsItem(
-                id = "1",
-                title = "ETH Large 【long】 Liquidation",
-                content = "Binance-ETHUSDT experienced a large 【long】 Liquidation, order TradeTurnover is 【$11.99M】, order price 【$2,423.17】.",
-                timeAgo = "1 hour ago",
-                category = "Liquidation",
-                isAlert = true
-            ),
-            NewsItem(
-                id = "2",
-                title = "In the last 4 hours, the main liquidation Long orders",
-                content = "In the past 4 hours, a total of 14,469 accounts were liquidated across Binance, Bybit, and OKX, with a total liquidation amount of $49.77M. The largest single liquidation occurred on Binance-BTCUSDT valued at $4.18M.",
-                timeAgo = "2 hours ago",
-                category = "Liquidation",
-                isAlert = true
-            ),
-            NewsItem(
-                id = "3",
-                title = "HyperLiquid Whale Position Change",
-                content = "Address: 0x020c******5872 (Label: Machi Big Brother) increased BTC Long position by +120 BTC ($9.26M) at mark price $77,140. Total size: 450 BTC ($34.7M).",
-                timeAgo = "3 hours ago",
-                category = "Whale Alert"
-            ),
-            NewsItem(
-                id = "4",
-                title = "Bitcoin Aggregate Open Interest hits $41.2B",
-                content = "Aggregate Bitcoin open interest across major derivatives exchanges reached $41.2 billion today, surging +4.8% over the past 24 hours as funding rates stay positive at +0.0100%.",
-                timeAgo = "5 hours ago",
-                category = "Derivatives"
-            ),
-            NewsItem(
-                id = "5",
-                title = "Spot Bitcoin ETF net daily inflow records +$213.08M",
-                content = "US Spot Bitcoin ETFs registered net inflows of $213.08M yesterday led by IBIT (+$152M) and FBTC (+$61M), continuing a 5-day positive accumulation streak.",
-                timeAgo = "7 hours ago",
-                category = "ETF"
+    val backendNews by viewModel.repository.backendNews.collectAsState()
+    val radarAlerts by viewModel.repository.contractRadarAlerts.collectAsState()
+
+    val newsItems = remember(backendNews, radarAlerts, activeTab) {
+        if (activeTab == "News flash") {
+            val alertItems = radarAlerts.map { alert ->
+                NewsItem(
+                    id = "radar_${alert.symbol}_${alert.riskScore}",
+                    title = "${alert.asset} ${alert.triggerReason.ifEmpty { "High Risk Alert" }}",
+                    content = "${alert.symbol} dominant side: ${alert.dominantSide}. Liquidation pool at $${String.format(java.util.Locale.US, "%,.2f", alert.liquidationPoolPrice)} (${String.format(java.util.Locale.US, "%.1f", alert.distancePct)}% distance). OI Surge: +${String.format(java.util.Locale.US, "%.1f", alert.oiSurge24hPct)}%.",
+                    timeAgo = "10m ago",
+                    category = "Radar",
+                    isAlert = alert.severity == "HIGH" || alert.severity == "CRITICAL",
+                    source = "Contract Radar"
+                )
+            }
+            val flashItems = backendNews.map {
+                NewsItem(
+                    id = it.id,
+                    title = it.title,
+                    content = it.summary,
+                    timeAgo = it.publishedAt.ifEmpty { "Just now" },
+                    category = it.category.ifEmpty { "News" },
+                    isAlert = it.sentiment.contains("bear", ignoreCase = true) || it.sentimentScore < -0.2,
+                    source = it.source.ifEmpty { "Cointelegraph" }
+                )
+            }
+            val combined = alertItems + flashItems
+            if (combined.isNotEmpty()) combined else listOf(
+                NewsItem(
+                    id = "1",
+                    title = "ETH Large 【long】 Liquidation",
+                    content = "Binance-ETHUSDT experienced a large 【long】 Liquidation, order TradeTurnover is 【$11.99M】, order price 【$2,423.17】.",
+                    timeAgo = "1 hour ago",
+                    category = "Liquidation",
+                    isAlert = true
+                ),
+                NewsItem(
+                    id = "2",
+                    title = "In the last 4 hours, the main liquidation Long orders",
+                    content = "In the past 4 hours, a total of 14,469 accounts were liquidated across Binance, Bybit, and OKX, with a total liquidation amount of $49.77M. The largest single liquidation occurred on Binance-BTCUSDT valued at $4.18M.",
+                    timeAgo = "2 hours ago",
+                    category = "Liquidation",
+                    isAlert = true
+                )
             )
-        )
+        } else {
+            val articles = backendNews.map {
+                NewsItem(
+                    id = it.id,
+                    title = it.title,
+                    content = it.summary,
+                    timeAgo = it.publishedAt.ifEmpty { "Recently" },
+                    category = it.category.ifEmpty { "General" },
+                    isAlert = false,
+                    source = it.source.ifEmpty { "CryptoScope Feed" }
+                )
+            }
+            if (articles.isNotEmpty()) articles else listOf(
+                NewsItem(
+                    id = "3",
+                    title = "Bitcoin Aggregate Open Interest Surges",
+                    content = "Aggregate Bitcoin open interest across major derivatives exchanges reached record highs today as funding rates stay positive and institutional inflows continue.",
+                    timeAgo = "3 hours ago",
+                    category = "Derivatives"
+                ),
+                NewsItem(
+                    id = "4",
+                    title = "Spot Bitcoin ETF Net Daily Inflows Positive",
+                    content = "US Spot Bitcoin ETFs registered net positive inflows continuing an ongoing weekly accumulation streak.",
+                    timeAgo = "5 hours ago",
+                    category = "ETF"
+                )
+            )
+        }
     }
 
     val filteredItems = remember(newsItems, selectedFilter) {

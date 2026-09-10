@@ -52,6 +52,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+import com.example.ui.util.AppLocalization
 import com.example.ui.viewmodel.CryptoScopeViewModel
 import com.example.ui.viewmodel.ScreenRoute
 
@@ -61,7 +62,8 @@ fun SignInScreen(
     initialIsSignUp: Boolean = false
 ) {
     var isSignUp by remember { mutableStateOf(initialIsSignUp) }
-    var selectedLanguage by remember { mutableStateOf("English") }
+    val uiState by viewModel.uiState.collectAsState()
+    val selectedLanguage = uiState.selectedLanguage
     var showLanguageMenu by remember { mutableStateOf(false) }
 
     // Form states
@@ -123,6 +125,7 @@ fun SignInScreen(
                 Box {
                     Row(
                         modifier = Modifier
+                            .testTag("language_changer_button")
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null
@@ -130,6 +133,14 @@ fun SignInScreen(
                             .padding(horizontal = 8.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        val currentOpt = AppLocalization.supportedLanguages.firstOrNull {
+                            it.displayName.equals(selectedLanguage, ignoreCase = true) ||
+                            it.nativeName.equals(selectedLanguage, ignoreCase = true)
+                        }
+                        if (currentOpt != null) {
+                            Text(text = currentOpt.flag, fontSize = 14.sp)
+                            Spacer(modifier = Modifier.width(4.dp))
+                        }
                         Text(
                             text = selectedLanguage,
                             fontSize = 14.sp,
@@ -150,20 +161,27 @@ fun SignInScreen(
                         onDismissRequest = { showLanguageMenu = false },
                         modifier = Modifier.background(Color.White)
                     ) {
-                        languages.forEach { lang ->
+                        AppLocalization.supportedLanguages.forEach { lang ->
+                            val isSelected = lang.displayName.equals(selectedLanguage, ignoreCase = true) ||
+                                    lang.nativeName.equals(selectedLanguage, ignoreCase = true)
                             DropdownMenuItem(
                                 text = {
-                                    Text(
-                                        text = lang,
-                                        fontSize = 14.sp,
-                                        fontWeight = if (lang == selectedLanguage) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (lang == selectedLanguage) Color(0xFF2563EB) else Color(0xFF0F172A)
-                                    )
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(text = lang.flag, fontSize = 16.sp)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "${lang.nativeName} (${lang.displayName})",
+                                            fontSize = 14.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (isSelected) Color(0xFF2563EB) else Color(0xFF0F172A)
+                                        )
+                                    }
                                 },
                                 onClick = {
-                                    selectedLanguage = lang
+                                    viewModel.setLanguage(lang.displayName)
                                     showLanguageMenu = false
-                                }
+                                },
+                                modifier = Modifier.testTag("auth_lang_option_${lang.code}")
                             )
                         }
                     }
@@ -209,7 +227,7 @@ fun SignInScreen(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = "Predict. Analyze. Trade Smarter.",
+                    text = AppLocalization.tr("tagline", selectedLanguage),
                     fontSize = 12.5.sp,
                     fontWeight = FontWeight.Medium,
                     color = Color(0xFF64748B),
@@ -236,7 +254,10 @@ fun SignInScreen(
                 ) {
                     // Heading & Subtitle
                     Text(
-                        text = if (inSignUpMode) "Create your account" else "Welcome back",
+                        text = if (inSignUpMode)
+                            AppLocalization.tr("create_account_title", selectedLanguage)
+                        else
+                            AppLocalization.tr("welcome_back", selectedLanguage),
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF0F172A),
@@ -247,9 +268,9 @@ fun SignInScreen(
 
                     Text(
                         text = if (inSignUpMode)
-                            "Join thousands of traders making\nsmarter decisions every day."
+                            AppLocalization.tr("signup_subtitle", selectedLanguage)
                         else
-                            "Log in to access your dashboard\nand AI-powered insights.",
+                            AppLocalization.tr("signin_subtitle", selectedLanguage),
                         fontSize = 13.sp,
                         lineHeight = 18.sp,
                         fontWeight = FontWeight.Normal,
@@ -265,7 +286,7 @@ fun SignInScreen(
                         AuthInputField(
                             value = fullName,
                             onValueChange = { fullName = it; errorMessage = null },
-                            placeholder = "Full Name",
+                            placeholder = AppLocalization.tr("full_name", selectedLanguage),
                             leadingIcon = Icons.Outlined.Person,
                             testTag = "full_name_input"
                         )
@@ -276,7 +297,7 @@ fun SignInScreen(
                     AuthInputField(
                         value = email,
                         onValueChange = { email = it; errorMessage = null },
-                        placeholder = "Email Address",
+                        placeholder = AppLocalization.tr("email_address", selectedLanguage),
                         leadingIcon = Icons.Outlined.Email,
                         keyboardType = KeyboardType.Email,
                         testTag = "email_input"
@@ -288,7 +309,7 @@ fun SignInScreen(
                     AuthInputField(
                         value = password,
                         onValueChange = { password = it; errorMessage = null },
-                        placeholder = "Password",
+                        placeholder = AppLocalization.tr("password", selectedLanguage),
                         leadingIcon = Icons.Outlined.Lock,
                         isPassword = true,
                         isPasswordVisible = passwordVisible,
@@ -304,7 +325,7 @@ fun SignInScreen(
                         AuthInputField(
                             value = confirmPassword,
                             onValueChange = { confirmPassword = it; errorMessage = null },
-                            placeholder = "Confirm Password",
+                            placeholder = AppLocalization.tr("confirm_password", selectedLanguage),
                             leadingIcon = Icons.Outlined.Lock,
                             isPassword = true,
                             isPasswordVisible = confirmPasswordVisible,
@@ -374,7 +395,7 @@ fun SignInScreen(
                             horizontalArrangement = Arrangement.End
                         ) {
                             Text(
-                                text = "Forgot Password?",
+                                text = AppLocalization.tr("forgot_password", selectedLanguage),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = Color(0xFF2563EB),
@@ -450,7 +471,10 @@ fun SignInScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = if (inSignUpMode) "Create Account" else "Log In",
+                            text = if (inSignUpMode)
+                                AppLocalization.tr("create_account", selectedLanguage)
+                            else
+                                AppLocalization.tr("log_in", selectedLanguage),
                             fontSize = 15.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = Color.White,
@@ -471,7 +495,7 @@ fun SignInScreen(
                             color = Color(0xFFE2E8F0)
                         )
                         Text(
-                            text = "or continue with",
+                            text = AppLocalization.tr("or_continue_with", selectedLanguage),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Normal,
                             color = Color(0xFF94A3B8),
@@ -523,12 +547,18 @@ fun SignInScreen(
                         modifier = Modifier.padding(vertical = 4.dp)
                     ) {
                         Text(
-                            text = if (inSignUpMode) "Already have an account? " else "Don't have an account? ",
+                            text = if (inSignUpMode)
+                                AppLocalization.tr("already_have_account", selectedLanguage)
+                            else
+                                AppLocalization.tr("dont_have_account", selectedLanguage),
                             fontSize = 13.5.sp,
                             color = Color(0xFF64748B)
                         )
                         Text(
-                            text = if (inSignUpMode) "Log in" else "Sign up",
+                            text = if (inSignUpMode)
+                                AppLocalization.tr("log_in", selectedLanguage)
+                            else
+                                AppLocalization.tr("sign_up", selectedLanguage),
                             fontSize = 13.5.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF2563EB),

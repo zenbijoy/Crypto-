@@ -32,10 +32,17 @@ fun DerivativesScreen(viewModel: CryptoScopeViewModel) {
     val textColor = if (isDark) DarkTextPrimary else LightTextPrimary
     val textMutedColor = if (isDark) DarkTextMuted else LightTextMuted
 
-    val derivatives = remember(uiState.selectedAsset) {
+    val liveFundingRates by viewModel.repository.liveFundingRates.collectAsState()
+    val liveOpenInterests by viewModel.repository.liveOpenInterests.collectAsState()
+
+    val symbol = uiState.selectedAsset.name
+    val liveFunding = liveFundingRates[symbol]
+    val liveOi = liveOpenInterests[symbol]
+
+    val derivatives = remember(uiState.selectedAsset, liveFunding, liveOi) {
         viewModel.repository.getDerivatives(uiState.selectedAsset)
     }
-    val multiFunding = remember(uiState.selectedAsset) {
+    val multiFunding = remember(uiState.selectedAsset, liveFunding) {
         viewModel.repository.getMultiExchangeFunding(uiState.selectedAsset)
     }
     val optionsAnalytics = remember(uiState.selectedAsset) {
@@ -44,6 +51,8 @@ fun DerivativesScreen(viewModel: CryptoScopeViewModel) {
     val orderFlow = remember(uiState.selectedAsset) {
         viewModel.repository.getOrderFlowAnalytics(uiState.selectedAsset)
     }
+
+    val countdown = viewModel.getNextFundingCountdown(symbol)
 
     var activeSubTab by remember { mutableStateOf("Funding") }
     val tabs = listOf("Funding", "Multi-Venue", "Order Flow", "Options")
@@ -93,8 +102,8 @@ fun DerivativesScreen(viewModel: CryptoScopeViewModel) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     Text("Current Funding Rate", fontSize = 10.sp, color = textMutedColor)
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text("${String.format("%.4f", derivatives.currentFunding * 100)}%", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = textColor)
-                    Text("8h countdown 1:32:14", fontSize = 9.sp, color = textMutedColor)
+                    Text("${String.format(java.util.Locale.US, "%.4f", derivatives.currentFunding * 100)}%", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = textColor)
+                    Text("8h countdown $countdown", fontSize = 9.sp, color = textMutedColor)
                 }
             }
 
